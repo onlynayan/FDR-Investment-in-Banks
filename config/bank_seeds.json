@@ -1,0 +1,657 @@
+{
+  "banks": [
+    {
+      "bank": "BRAC Bank",
+      "seeds": [
+        "https://www.bracbank.com/",
+        "https://www.legacy.bracbank.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "City Bank",
+      "seeds": [
+        "https://www.citybankplc.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Eastern Bank (EBL)",
+      "seeds": [
+        "https://www.ebl.com.bd/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Prime Bank",
+      "seeds": [
+        "https://www.primebank.com.bd/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Trust Bank",
+      "seeds": [
+        "https://www.tblbd.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "AB Bank",
+      "seeds": [
+        "https://abbl.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Bank Asia",
+      "seeds": [
+        "https://www.bankasia-bd.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Dhaka Bank",
+      "seeds": [
+        "https://dhakabank.com.bd/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Mutual Trust Bank",
+      "seeds": [
+        "https://www.mutualtrustbank.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "One Bank",
+      "seeds": [
+        "https://www.onebank.com.bd/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Dutch-Bangla Bank",
+      "seeds": [
+        "https://www.dutchbanglabank.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Jamuna Bank",
+      "seeds": [
+        "https://jamunabankbd.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Southeast Bank",
+      "seeds": [
+        "https://www.southeastbank.com.bd/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Uttara Bank",
+      "seeds": [
+        "https://www.uttarabank-bd.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Mercantile Bank",
+      "seeds": [
+        "https://www.mblbd.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    }
+    ,
+    {
+      "bank": "Meghna Bank",
+      "seeds": [
+        "https://www.meghnabank.com.bd/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Midland Bank",
+      "seeds": [
+        "https://www.midlandbankbd.net/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "National Bank",
+      "seeds": [
+        "https://www.nblbd.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "NBL Bank",
+      "seeds": [
+        "https://www.nblbd.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "NRBC Bank",
+      "seeds": [
+        "https://www.nrbcommercialbank.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Premier Bank",
+      "seeds": [
+        "https://thepremierbankplc.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Shimanto Bank",
+      "seeds": [
+        "https://www.shimantobank.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "United Commercial Bank",
+      "seeds": [
+        "https://www.ucb.com.bd/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Sonali Bank",
+      "seeds": [
+        "https://www.sonalibank.com.bd/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Rupali Bank",
+      "seeds": [
+        "https://rupalibank.com.bd/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Agrani Bank",
+      "seeds": [
+        "https://www.agranibank.org/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Janata Bank",
+      "seeds": [
+        "https://www.jb.com.bd/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Basic Bank",
+      "seeds": [
+        "https://www.basicbanklimited.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "Modhumoti Bank",
+      "seeds": [
+        "https://www.modhumotibankplc.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "NRB Bank",
+      "seeds": [
+        "https://www.nrbbankbd.com/investors-relation/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    },
+    {
+      "bank": "SBAC Bank",
+      "seeds": [
+        "https://www.sbacbank.com/"
+      ],
+      "keywords": [
+        "annual report",
+        "annual-report",
+        "annual_report",
+        "Annual_Report",
+        "annualreport",
+        "financial statement",
+        "financial statements",
+        "financial_statement",
+        "financialstatement",
+        "annual report 2024",
+        "annual report 2025",
+        "annual report 2026",
+        "annual report 2027"
+      ]
+    }
+  ]
+}

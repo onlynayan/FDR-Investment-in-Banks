@@ -1,0 +1,11 @@
+{
+  "name": "fdr-investment-in-banks-ui",
+  "private": true,
+  "version": "1.0.0",
+  "description": "UI dependencies for FDR Investment in Banks",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

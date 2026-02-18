@@ -1,0 +1,76 @@
+{
+  "fields": [
+    {
+      "name": "Capital Adequacy Ratio (CRAR)",
+      "patterns": [
+        "(?:Capital Adequacy Ratio|Capital To Risk Weighted Asset(?:s)? Ratio|Capital-To-Risk-Weighted-Asset(?:s)? Ratio|Capital-Adequacy Ratio|Capital to Risk Weighted Assets Ratio \\(CRAR\\)|Capital to Risk Weighted Asset Ratio \\(CRAR\\)|Risk Weighted Asset Ratio \\(CRAR\\))\\s*[:\\-]?\\s*[\\.\\s]*([0-9]+(?:\\.[0-9]+)?%?)"
+      ]
+    },
+    {
+      "name": "Leverage Ratio (LR)",
+      "patterns": [
+        "(?:Leverage Ratio|Leverage-Ratio|Tier\\s*[-\\s]*1\\s*Leverage\\s*Ratio|Basel\\s*III\\s*Leverage\\s*Ratio|\\bLR\\b)\\s*[:\\-]?\\s*[\\.\\s]*([0-9]+(?:\\.[0-9]+)?%?)"
+      ]
+    },
+    {
+      "name": "Non-Performing Loan Ratio (NPL)",
+      "patterns": [
+        "(?:(?<!Net\\s)(?<!Gross\\s)(?:Non Performing Loan Ratio|Non-performing Loan Ratio|Non-Performing Loan Ratio|Non Performing Loans?|Non-performing Loans?|Non-Performing Loans?|NPL Ratio|NPLs to total loans and advances(?:\\s*\\((?:percent|percentage)\\))?|Percentage of Classified Loans against total loans\\s*(?:and|&)\\s*advances|Class\\.\\s*Advance/Total\\s*Advance|Classified\\s*Advance/Total\\s*Advance|Classified\\s*Advances?/Total\\s*Advances?)|Gross\\s+(?:NPL Ratio|Non Performing Loan Ratio|Non-performing Loan Ratio|Non-Performing Loan Ratio))\\s*[:\\-]?\\s*[\\.\\s]*([0-9]+(?:\\.[0-9]+)?%?)"
+      ]
+    },
+    {
+      "name": "Provision Coverage Ratio (PCR)",
+      "patterns": [
+        "(?:Provision Coverage Ratio|Provision-Coverage Ratio)\\s*[:\\-]?\\s*[\\.\\s]*([0-9]+(?:\\.[0-9]+)?%?)"
+      ]
+    },
+    {
+      "name": "Loan to Deposit Ratio (LDR)",
+      "patterns": [
+        "(?:Loan To Deposit Ratio|Loan-To-Deposit Ratio|Advance Deposit Ratio|Advance-Deposit Ratio|Advance to Deposit Ratio|\\bAD Ratio\\b|\\bADR\\b)\\s*[:\\-]?\\s*[\\.\\s]*([0-9]+(?:\\.[0-9]+)?%?)"
+      ]
+    },
+    {
+      "name": "Return on Assets (ROA)",
+      "patterns": [
+        "(?:Return on Asset|Return on Assets|Return-on-Asset|Return-on-Assets|\\bROA\\b|PAT\\s*/\\s*Average\\s*Assets?|Return\\s+on\\s+Average\\s+Assets)\\s*[:\\-]?\\s*[\\.\\s]*([0-9]+(?:\\.[0-9]+)?%?)"
+      ]
+    },
+    {
+      "name": "Return on Equity (ROE)",
+      "patterns": [
+        "(?:Return on Equity|Return-on-Equity|Return on Shareholders'?\\s*Equity|Return on Average Equity|\\bROE\\b|PAT\\s*/\\s*Average\\s*Equity)\\s*[:\\-]?\\s*[\\.\\s]*([0-9]+(?:\\.[0-9]+)?%?)"
+      ]
+    },
+    {
+      "name": "Net Interest Margin (NIM)",
+      "patterns": [
+        "(?:Net Interest Margin|Net-Interest-Margin|\\bNIM\\b|Net Interest Income\\s*(?:as\\s*)?%?\\s*of\\s*Working\\s*Fund|Net Interest Income\\s*(?:%|percent|percentage)|Net Interest Income)\\s*[:\\-]?\\s*[\\.\\s]*([0-9]+(?:\\.[0-9]+)?%?)"
+      ]
+    },
+    {
+      "name": "Liquidity Coverage Ratio (LCR)",
+      "patterns": [
+        "(?:Liquidity Coverage Ratio|Liquidity-Coverage Ratio|\\bLCR\\b)\\s*[:\\-]?\\s*[\\.\\s]*([0-9]+(?:\\.[0-9]+)?%?)"
+      ]
+    },
+    {
+      "name": "Net Stable Funding Ratio (NSFR)",
+      "patterns": [
+        "(?:Net Stable Funding Ratio|Net-Stable-Funding Ratio|\\bNSFR\\b)\\s*[:\\-]?\\s*[\\.\\s]*([0-9]+(?:\\.[0-9]+)?%?)"
+      ]
+    },
+    {
+      "name": "Cash to Deposit Ratio (CDR)",
+      "patterns": [
+        "(?:Cash to Deposit Ratio|Cash-To-Deposit Ratio)\\s*[:\\-]?\\s*[\\.\\s]*([0-9]+(?:\\.[0-9]+)?%?)"
+      ]
+    },
+    {
+      "name": "Credit Rating (CR)",
+      "patterns": [
+        "(?:Credit Rating|Credit-Rating)\\s*[:\\-]?\\s*([A-Za-z0-9+/\\- ]{2,30})"
+      ]
+    }
+  ]
+}

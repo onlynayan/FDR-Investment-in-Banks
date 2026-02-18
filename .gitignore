@@ -1,0 +1,31 @@
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Runtime/generated data
+downloads/
+output/
+eligible_output/
+eligible_downloads/*.pdf
+eligible_downloads/**/*.pdf
+*.log
+
+# Archives and large bundles
+*.rar
+*.zip
+
+# Node artifacts (if installed later)
+node_modules/
+
+# Exclude for now (user request)
+crawler.py

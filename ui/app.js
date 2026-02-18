@@ -1,0 +1,1929 @@
+// Developed by Nayan
+// --- DOM references ---
+const runBtn = document.getElementById("runBtn");
+const runBtnHero = document.getElementById("runBtnHero");
+const runAgainBtn = document.getElementById("runAgainBtn");
+const eligibilityBtn = document.getElementById("eligibilityBtn");
+const stopRunBtn = document.getElementById("stopRunBtn");
+const viewScorecardBtn = document.getElementById("viewScorecard");
+const scoreSection = document.getElementById("scoreSection");
+const overlay = document.getElementById("overlay");
+const progressBar = document.getElementById("progressBar");
+const progressValue = document.getElementById("progressValue");
+const progressHint = document.getElementById("progressHint");
+const statusLabel = document.getElementById("statusLabel");
+const stepListEl = document.getElementById("stepList");
+const runTitle = document.getElementById("runTitle");
+let stepItems = Array.from(document.querySelectorAll("#stepList .step"));
+const logList = document.getElementById("logList");
+const closeOverlay = document.getElementById("closeOverlay");
+const openOverlayBtn = document.getElementById("openOverlay");
+const confidenceRing = document.getElementById("confidenceRing");
+const healthValue = document.getElementById("healthValue");
+const selectedBankChip = document.getElementById("selectedBankChip");
+const totalScoreEl = document.getElementById("totalScore");
+const scoreTierEl = document.getElementById("scoreTier");
+const scoreFlagsEl = document.getElementById("scoreFlags");
+const scoreNotesEl = document.getElementById("scoreNotes");
+const featureBody = document.getElementById("featureBody");
+const scoreList = document.getElementById("scoreList");
+const peerMedianEl = document.getElementById("peerMedian");
+const runBankName = document.getElementById("runBankName");
+const resultValue = document.getElementById("resultValue");
+const resultMeta = document.getElementById("resultMeta");
+const resultDelta = document.getElementById("resultDelta");
+const bankTabs = document.getElementById("bankTabs");
+const comparisonSub = document.getElementById("comparisonSub");
+const featureSub = document.getElementById("featureSub");
+const strongCountEl = document.getElementById("strongCount");
+const moderateCountEl = document.getElementById("moderateCount");
+const weakCountEl = document.getElementById("weakCount");
+const totalBankCountEl = document.getElementById("totalBankCount");
+const eligibleBankCountEl = document.getElementById("eligibleBankCount");
+const indicatorDonut = document.getElementById("indicatorDonut");
+const indicatorDonutValue = document.getElementById("indicatorDonutValue");
+const indicatorCountEl = document.getElementById("indicatorCount");
+const indicatorLabelEl = document.getElementById("indicatorLabel");
+const outputTabs = document.getElementById("outputTabs");
+const outputPanels = document.getElementById("outputPanels");
+const eligibilityTabs = document.getElementById("eligibilityTabs");
+const eligibilityBody = document.getElementById("eligibilityBody");
+const eligibilityScoreEl = document.getElementById("eligibilityScore");
+const eligibilityMaxEl = document.getElementById("eligibilityMax");
+const eligibilityTierEl = document.getElementById("eligibilityTier");
+const eligibilityTierNoteEl = document.getElementById("eligibilityTierNote");
+const eligibilityFlagsEl = document.getElementById("eligibilityFlags");
+const eligibilityNotesEl = document.getElementById("eligibilityNotes");
+
+// --- Indicator definitions and benchmarks ---
+const indicatorBenchmarks = [
+  {
+    key: "crar",
+    label: "Capital Adequacy Ratio (CRAR)",
+    maxScore: 15,
+    tiers: [
+      { label: ">= 14%", score: 15, tone: "good" },
+      { label: "12.5% - 13.9%", score: 10, tone: "warn" },
+      { label: "10% - 12.4%", score: 7, tone: "warn" },
+      { label: "< 10%", score: 0, tone: "bad" },
+    ],
+  },
+  {
+    key: "leverage",
+    label: "Leverage Ratio",
+    maxScore: 5,
+    tiers: [
+      { label: ">= 3%", score: 5, tone: "good" },
+      { label: "< 3%", score: 0, tone: "bad" },
+    ],
+  },
+  {
+    key: "npl",
+    label: "Non-Performing Loan (NPL) Ratio",
+    maxScore: 15,
+    tiers: [
+      { label: "<= 3%", score: 15, tone: "good" },
+      { label: "3.1% - 5%", score: 10, tone: "warn" },
+      { label: "5.1% - 8%", score: 5, tone: "warn" },
+      { label: "> 8%", score: 0, tone: "bad" },
+    ],
+  },
+  {
+    key: "provision",
+    label: "Provision Coverage Ratio",
+    maxScore: 10,
+    tiers: [
+      { label: ">= 100%", score: 10, tone: "good" },
+      { label: "< 100%", score: 0, tone: "bad" },
+    ],
+  },
+  {
+    key: "ldr",
+    label: "Loan to Deposit Ratio",
+    maxScore: 5,
+    tiers: [
+      { label: "> 90%", score: 0, tone: "bad" },
+      { label: "75% - 90%", score: 5, tone: "good" },
+      { label: "< 75%", score: 0, tone: "bad" },
+    ],
+  },
+  {
+    key: "roa",
+    label: "Return on Assets (ROA)",
+    maxScore: 5,
+    tiers: [
+      { label: ">= 1%", score: 5, tone: "good" },
+      { label: "< 1%", score: 0, tone: "bad" },
+    ],
+  },
+  {
+    key: "roe",
+    label: "Return on Equity (ROE)",
+    maxScore: 5,
+    tiers: [
+      { label: ">= 12%", score: 5, tone: "good" },
+      { label: "< 12%", score: 0, tone: "bad" },
+    ],
+  },
+  {
+    key: "nim",
+    label: "Net Interest Margin (NIM)",
+    maxScore: 5,
+    tiers: [
+      { label: ">= 3%", score: 5, tone: "good" },
+      { label: "< 3%", score: 0, tone: "bad" },
+    ],
+  },
+  {
+    key: "lcr",
+    label: "Liquidity Coverage Ratio (LCR)",
+    maxScore: 10,
+    tiers: [
+      { label: ">= 110%", score: 10, tone: "good" },
+      { label: "< 110%", score: 0, tone: "bad" },
+    ],
+  },
+  {
+    key: "nsfr",
+    label: "Net Stable Funding Ratio (NSFR)",
+    maxScore: 10,
+    tiers: [
+      { label: ">= 100%", score: 10, tone: "good" },
+      { label: "< 100%", score: 0, tone: "bad" },
+    ],
+  },
+  {
+    key: "cdr",
+    label: "Cash-to-Deposit Ratio",
+    maxScore: 5,
+    tiers: [
+      { label: ">= 10%", score: 5, tone: "good" },
+      { label: "< 10%", score: 0, tone: "bad" },
+    ],
+  },
+  {
+    key: "creditRating",
+    label: "Credit Rating",
+    maxScore: 10,
+    tiers: [
+      { label: "AAA / AA", score: 10, tone: "good" },
+      { label: "Below AA", score: 0, tone: "bad" },
+    ],
+  },
+];
+
+const eligibilityIndicators = indicatorBenchmarks.filter((indicator) =>
+  ["npl", "provision", "creditRating"].includes(indicator.key)
+);
+const eligibilityMaxScore = eligibilityIndicators.reduce((sum, indicator) => sum + (indicator.maxScore || 0), 0);
+
+// --- Run pipeline hints ---
+const runSteps = {
+  extraction: {
+    steps: [
+      "Seed discovery",
+      "Download report",
+      "Scan pages",
+      "Extract indicators",
+      "Apply benchmarks",
+      "Build comparison",
+      "Export scorecard",
+    ],
+    hints: [
+      "Selecting bank seeds and report URLs",
+      "Downloading report PDF",
+      "Scanning pages and running OCR",
+      "Extracting 12 indicators",
+      "Applying regulatory benchmarks",
+      "Building peer comparison",
+      "Exporting scorecard output",
+    ],
+  },
+  eligibility: {
+    steps: [
+      "Select bank",
+      "Download report",
+      "Scan pages",
+      "Extract 3 indicators",
+      "Send to APEX",
+    ],
+    hints: [
+      "Selecting bank and annual report",
+      "Downloading report PDF",
+      "Scanning pages and running OCR",
+      "Extracting 3 indicators",
+      "Syncing eligibility to APEX",
+    ],
+  },
+};
+
+// --- Formatting helpers ---
+const percentKeys = new Set([
+  "crar",
+  "leverage",
+  "npl",
+  "provision",
+  "ldr",
+  "roa",
+  "roe",
+  "nim",
+  "lcr",
+  "nsfr",
+  "cdr",
+]);
+
+// --- Shared button list ---
+const runButtons = [runBtn, runBtnHero, runAgainBtn].filter(Boolean);
+const controlButtons = [runBtn, runBtnHero, runAgainBtn, eligibilityBtn].filter(Boolean);
+const defaultButtonLabels = new Map(
+  [
+    [runBtn, "Run extraction"],
+    [runBtnHero, "Run now"],
+    [runAgainBtn, "Run again"],
+    [eligibilityBtn, "Eligibility scan"],
+    [stopRunBtn, "Close process"],
+  ].filter(([button]) => Boolean(button))
+);
+const RUN_STATUS_STORAGE_KEY = "fdr-investments.runStatus.v1";
+const RUN_STATUS_ENDPOINTS = ["/api/run-status", "api/run-status", "/run-status", "run-status"];
+const RUN_UI_STORAGE_KEY = "fdr-investments.runUi.v1";
+
+// --- App state ---
+const state = {
+  banks: {},
+  bankOrder: [],
+  activeBankKey: null,
+  eligibilityBanks: {},
+  eligibilityOrder: [],
+  activeEligibilityKey: null,
+  eligibilityMaxScore,
+  outputMode: "extraction",
+  totalBanks: 0,
+  runSource: null,
+  running: false,
+  currentBankIndex: 0,
+  runStart: 0,
+  runBankOrder: [],
+  currentRunType: null,
+  stepHints: runSteps.extraction.hints,
+  statusPollTimer: null,
+  lastStatusKey: "",
+  statusEndpoint: null,
+  statusFetchErrorLogged: false,
+};
+
+const runConfigs = {
+  extraction: {
+    endpoint: "/api/run",
+    label: "python scraper.py",
+    statusText: "Running",
+    runTitle: "Building scorecard for",
+    initialHint: "Waiting for scraper",
+    completeHint: "Run complete. Scorecards updated.",
+    completedStatus: "Complete",
+    resultValue: "All banks processed",
+    resultMeta: "Scorecards streamed live from scraper output",
+    deltaLabel: "Peer median delta",
+    onComplete: () => {},
+  },
+  eligibility: {
+    endpoint: "/api/eligibility-run",
+    label: "python eligible_scraper.py",
+    statusText: "Eligibility scan",
+    runTitle: "Eligibility scan for",
+    initialHint: "Waiting for eligibility scan",
+    completeHint: "Eligibility scan complete. APEX sync done.",
+    completedStatus: "Eligibility ready",
+    resultValue: "Eligibility scan finished",
+    resultMeta: "Eligible banks forwarded to APEX",
+    deltaLabel: "APEX sync complete",
+    onComplete: () => loadEligibilityScorecards(),
+  },
+};
+
+// --- Time and log utilities ---
+const pad = (num) => String(num).padStart(2, "0");
+const formatElapsed = (ms) => {
+  const total = Math.floor(ms / 1000);
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${pad(minutes)}:${pad(seconds)}`;
+};
+
+const addLog = (message) => {
+  if (!state.runStart) {
+    state.runStart = Date.now();
+  }
+  const li = document.createElement("li");
+  const time = document.createElement("span");
+  time.className = "console-time";
+  time.textContent = formatElapsed(Date.now() - state.runStart);
+  li.appendChild(time);
+  li.append(message);
+  logList.appendChild(li);
+  if (logList.children.length > 200) {
+    logList.removeChild(logList.firstChild);
+  }
+  logList.scrollTop = logList.scrollHeight;
+};
+
+const saveRunUiSnapshot = () => {
+  try {
+    const payload = {
+      ts: Date.now(),
+      running: Boolean(state.running),
+      currentRunType: state.currentRunType || null,
+      progressText: progressValue ? progressValue.textContent : "0%",
+      progressHint: progressHint ? progressHint.textContent : "",
+      runBank: runBankName ? runBankName.textContent : "",
+      statusLabel: statusLabel ? statusLabel.textContent : "",
+    };
+    localStorage.setItem(RUN_UI_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    return;
+  }
+};
+
+const loadRunUiSnapshot = () => {
+  try {
+    const raw = localStorage.getItem(RUN_UI_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    return null;
+  }
+};
+
+const clearRunUiSnapshot = () => {
+  try {
+    localStorage.removeItem(RUN_UI_STORAGE_KEY);
+  } catch (error) {
+    return;
+  }
+};
+
+const saveRunStatusSnapshot = (runs) => {
+  try {
+    localStorage.setItem(
+      RUN_STATUS_STORAGE_KEY,
+      JSON.stringify({
+        ts: Date.now(),
+        runs: runs || {},
+      })
+    );
+  } catch (error) {
+    return;
+  }
+};
+
+const clearRunStatusSnapshot = () => {
+  try {
+    localStorage.removeItem(RUN_STATUS_STORAGE_KEY);
+  } catch (error) {
+    return;
+  }
+};
+
+const loadRunStatusSnapshot = () => {
+  try {
+    const raw = localStorage.getItem(RUN_STATUS_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    if (!parsed.runs || typeof parsed.runs !== "object") {
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    return null;
+  }
+};
+
+// --- Progress bar helpers ---
+const setProgress = (value) => {
+  const clamped = Math.max(0, Math.min(100, value));
+  progressBar.style.width = `${Math.round(clamped)}%`;
+  progressValue.textContent = `${Math.round(clamped)}%`;
+  updateRunButtonLabel(clamped);
+  saveRunUiSnapshot();
+};
+
+const setStepActive = (index) => {
+  stepItems.forEach((step, idx) => {
+    step.classList.toggle("active", idx === index);
+    step.classList.toggle("done", idx < index);
+  });
+  const hints = state.stepHints || [];
+  progressHint.textContent = hints[index] || "Running";
+};
+
+const resetSteps = () => {
+  stepItems.forEach((step) => {
+    step.classList.remove("active", "done");
+  });
+  if (stepItems[0]) {
+    stepItems[0].classList.add("active");
+  }
+};
+
+const setRunSteps = (runType) => {
+  const config = runSteps[runType] || runSteps.extraction;
+  state.stepHints = config.hints;
+  if (!stepListEl) {
+    return;
+  }
+  stepListEl.innerHTML = "";
+  config.steps.forEach((label) => {
+    const li = document.createElement("li");
+    li.className = "step";
+    li.textContent = label;
+    stepListEl.appendChild(li);
+  });
+  stepItems = Array.from(stepListEl.querySelectorAll(".step"));
+};
+
+// --- Button state helpers ---
+const setButtonsDisabled = (disabled) => {
+  controlButtons.forEach((button) => {
+    button.disabled = disabled;
+    if (!disabled) {
+      const label = defaultButtonLabels.get(button);
+      if (label) {
+        button.textContent = label;
+      }
+    }
+  });
+  if (disabled) {
+    if (runBtn) {
+      updateRunButtonLabel(0);
+    }
+    if (eligibilityBtn) {
+      eligibilityBtn.textContent = "Checking eligibility…";
+    }
+  }
+  updateStopButtonState();
+};
+
+const updateStopButtonState = () => {
+  if (!stopRunBtn) {
+    return;
+  }
+  stopRunBtn.disabled = !state.running;
+};
+
+// --- Run button label helpers ---
+const updateRunButtonLabel = (progress) => {
+  if (!runBtn) {
+    return;
+  }
+  if (!state.running || state.currentRunType !== "extraction") {
+    runBtn.textContent = defaultButtonLabels.get(runBtn) || "Run extraction";
+    return;
+  }
+  const value = Math.round(progress ?? 0);
+  runBtn.textContent = `Running ${value}%`;
+};
+
+// --- Overlay visibility helpers ---
+const syncOverlayToggle = () => {
+  if (!openOverlayBtn) {
+    return;
+  }
+  const isHidden = !overlay.classList.contains("show");
+  const shouldShow = isHidden && (state.running || overlay.classList.contains("complete"));
+  openOverlayBtn.classList.toggle("visible", shouldShow);
+};
+
+const showOverlay = () => {
+  overlay.classList.add("show");
+  document.body.classList.add("locked");
+  syncOverlayToggle();
+};
+
+const hideOverlay = () => {
+  overlay.classList.remove("show");
+  document.body.classList.remove("locked");
+  syncOverlayToggle();
+};
+
+// --- Value formatting and scoring helpers ---
+const isMissingValue = (value) => {
+  if (value === null || value === undefined) {
+    return true;
+  }
+  if (typeof value === "number") {
+    return !Number.isFinite(value);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+    return trimmed === "" || trimmed === "none" || trimmed === "null" || trimmed === "nan" || trimmed === "n/a";
+  }
+  return false;
+};
+
+const formatValue = (value, key) => {
+  if (isMissingValue(value)) {
+    return "N/A";
+  }
+  if (typeof value === "number") {
+    const formatted = Number.isInteger(value) ? value.toString() : value.toFixed(2);
+    return percentKeys.has(key) ? `${formatted}%` : formatted;
+  }
+  return String(value);
+};
+
+const getScoreValue = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const getTotalScore = (bank) => {
+  if (typeof bank.totalScore === "number") {
+    return bank.totalScore;
+  }
+  return indicatorBenchmarks.reduce((sum, indicator) => {
+    const entry = bank.indicators[indicator.key];
+    const score = getScoreValue(entry?.score);
+    return sum + (score ?? 0);
+  }, 0);
+};
+
+const getEligibilityTotalScore = (bank) => {
+  if (!bank || !bank.indicators) {
+    return 0;
+  }
+  return eligibilityIndicators.reduce((sum, indicator) => {
+    const entry = bank.indicators[indicator.key];
+    const score = getScoreValue(entry?.score);
+    return sum + (score ?? 0);
+  }, 0);
+};
+
+const getEligibilityPercent = (bank) => {
+  const max = state.eligibilityMaxScore || eligibilityMaxScore;
+  if (!max) {
+    return 0;
+  }
+  return Math.round((getEligibilityTotalScore(bank) / max) * 100);
+};
+
+const getCoveragePercent = (bank) => {
+  if (!bank || !bank.indicators) {
+    return 0;
+  }
+  const keys = indicatorBenchmarks.map((indicator) => indicator.key).filter((key) => key !== "cdr");
+  const total = keys.length;
+  if (!total) {
+    return 0;
+  }
+  const filled = keys.reduce((count, key) => {
+    const value = bank.indicators[key]?.value;
+    const hasValue = value !== null && value !== undefined && value !== "";
+    return count + (hasValue ? 1 : 0);
+  }, 0);
+  return Math.round((filled / total) * 100);
+};
+
+const donutPalette = ["#2ed9b8", "#6fd2ff", "#f2a93b", "#ff6f7d"];
+
+const updateIndicatorDonut = (bank) => {
+  if (!indicatorDonut || !bank?.indicators) {
+    return;
+  }
+  const total = indicatorBenchmarks.length;
+  if (!total) {
+    return;
+  }
+  const angle = 360 / total;
+  let current = 0;
+  const segments = [];
+  let totalScore = 0;
+  let totalMax = 0;
+  indicatorBenchmarks.forEach((indicator, idx) => {
+    const entry = bank.indicators[indicator.key] || {};
+    const score = getScoreValue(entry.score);
+    const max = indicator.maxScore || 0;
+    const ratio = max > 0 && score !== null ? Math.max(0, Math.min(1, score / max)) : 0;
+    const start = current;
+    const filled = start + angle * ratio;
+    const end = start + angle;
+    const fillColor = donutPalette[idx % donutPalette.length];
+    const emptyColor = "rgba(255, 255, 255, 0.08)";
+    if (ratio > 0) {
+      segments.push(`${fillColor} ${start.toFixed(2)}deg ${filled.toFixed(2)}deg`);
+    }
+    segments.push(`${emptyColor} ${filled.toFixed(2)}deg ${end.toFixed(2)}deg`);
+    current = end;
+    if (max > 0) {
+      totalMax += max;
+      totalScore += Math.max(0, score ?? 0);
+    }
+  });
+  indicatorDonut.style.background = `conic-gradient(${segments.join(", ")})`;
+  if (indicatorDonutValue) {
+    const percent = totalMax ? Math.round((totalScore / totalMax) * 100) : 0;
+    indicatorDonutValue.textContent = `${percent}%`;
+  }
+};
+
+const getTier = (score) => {
+  if (score >= 80) return "Strong";
+  if (score >= 60) return "Moderate";
+  return "Weak";
+};
+
+const updateTierCounts = () => {
+  if (!strongCountEl || !moderateCountEl || !weakCountEl) {
+    return;
+  }
+  const counts = { Strong: 0, Moderate: 0, Weak: 0 };
+  state.bankOrder.forEach((key) => {
+    const bank = state.banks[key];
+    const score = getTotalScore(bank);
+    counts[getTier(score)] += 1;
+  });
+  strongCountEl.textContent = counts.Strong;
+  moderateCountEl.textContent = counts.Moderate;
+  weakCountEl.textContent = counts.Weak;
+};
+
+const updateBankCounts = () => {
+  if (totalBankCountEl) {
+    const total = state.totalBanks || state.runBankOrder.length || state.bankOrder.length || 0;
+    totalBankCountEl.textContent = total;
+  }
+  if (eligibleBankCountEl) {
+    eligibleBankCountEl.textContent = state.bankOrder.length || 0;
+  }
+};
+
+const getFlags = (bank) => {
+  const flags = [];
+  const nplScore = getScoreValue(bank.indicators.npl?.score);
+  const crarScore = getScoreValue(bank.indicators.crar?.score);
+
+  if (nplScore !== null && nplScore <= 5) {
+    flags.push("High NPL ratio");
+  }
+  if (crarScore !== null && crarScore <= 7) {
+    flags.push("Low CRAR");
+  }
+  return flags;
+};
+
+const getEligibilityFlags = (bank) => {
+  const flags = [];
+  const nplScore = getScoreValue(bank.indicators.npl?.score);
+  const pcrScore = getScoreValue(bank.indicators.provision?.score);
+  const ratingScore = getScoreValue(bank.indicators.creditRating?.score);
+
+  if (nplScore !== null && nplScore <= 5) {
+    flags.push("High NPL ratio");
+  }
+  if (pcrScore !== null && pcrScore <= 0) {
+    flags.push("Low PCR");
+  }
+  if (ratingScore !== null && ratingScore <= 0) {
+    flags.push("Below AA rating");
+  }
+  return flags;
+};
+
+const normalizeRating = (value) => {
+  if (isMissingValue(value)) {
+    return "";
+  }
+  return String(value).trim().toUpperCase();
+};
+
+const getEligibilityStatus = (bank) => {
+  if (!bank || !bank.indicators) {
+    return "weak";
+  }
+  const nplValue = bank.indicators.npl?.value;
+  const ratingValue = bank.indicators.creditRating?.value;
+  if (isMissingValue(nplValue) || isMissingValue(ratingValue)) {
+    return "weak";
+  }
+  const numericNpl = Number(nplValue);
+  const rating = normalizeRating(ratingValue);
+  if (Number.isFinite(numericNpl) && numericNpl < 8 && (rating === "AAA" || rating === "AA")) {
+    return "strong";
+  }
+  return "moderate";
+};
+
+// --- UI rendering: feature table ---
+const renderIndicatorRows = (bank, indicators, target) => {
+  if (!target) {
+    return;
+  }
+  target.innerHTML = "";
+  if (!bank) {
+    return;
+  }
+
+  indicators.forEach((indicator) => {
+    const entry = bank.indicators[indicator.key] || {};
+    const row = document.createElement("div");
+    row.className = "feature-row";
+
+    const indicatorCell = document.createElement("span");
+    indicatorCell.className = "indicator-name";
+    indicatorCell.textContent = indicator.label;
+
+    const benchmarkCell = document.createElement("div");
+    benchmarkCell.className = "benchmark-stack";
+
+    indicator.tiers.forEach((tier) => {
+      const chip = document.createElement("div");
+      chip.className = `benchmark-chip ${tier.tone}`;
+
+      const label = document.createElement("span");
+      label.className = "chip-label";
+      label.textContent = tier.label;
+
+      const score = document.createElement("span");
+      score.className = "chip-score";
+      score.textContent = tier.score;
+
+      chip.append(label, score);
+      benchmarkCell.appendChild(chip);
+    });
+
+    const valueCell = document.createElement("span");
+    const formattedValue = formatValue(entry.value, indicator.key);
+    valueCell.textContent = formattedValue;
+    if (formattedValue === "N/A") {
+      valueCell.classList.add("na");
+    }
+
+    const scoreCell = document.createElement("span");
+    const numericScore = getScoreValue(entry.score);
+    const scoreClass =
+      numericScore === null
+        ? ""
+        : numericScore < 0
+        ? "score-negative"
+        : numericScore === indicator.maxScore && indicator.maxScore > 0
+        ? "score-positive"
+        : numericScore > 0
+        ? "score-warning"
+        : "";
+    scoreCell.className = `score-cell${scoreClass ? ` ${scoreClass}` : ""}`;
+    const scoreText = isMissingValue(entry.score) ? "N/A" : entry.score;
+    scoreCell.textContent = scoreText;
+    if (scoreText === "N/A") {
+      scoreCell.classList.add("na");
+    }
+
+    const pageCell = document.createElement("span");
+    pageCell.className = "page-cell";
+    const pageValue = entry.page ?? "";
+    const pageText = isMissingValue(pageValue) ? "N/A" : pageValue;
+    if (pageText === "N/A") {
+      pageCell.textContent = pageText;
+      pageCell.classList.add("na");
+    } else if (entry.sourceUrl) {
+      const link = document.createElement("a");
+      link.className = "page-link";
+      link.href = entry.sourceUrl;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = pageText;
+      link.title = "Open source PDF at the highlighted value";
+      pageCell.appendChild(link);
+    } else {
+      pageCell.textContent = pageText;
+    }
+
+    row.append(indicatorCell, benchmarkCell, valueCell, scoreCell, pageCell);
+    target.appendChild(row);
+  });
+};
+
+const renderFeatureRows = (bankKey) => {
+  const bank = state.banks[bankKey];
+  renderIndicatorRows(bank, indicatorBenchmarks, featureBody);
+};
+
+const renderEligibilityRows = (bankKey) => {
+  const bank = state.eligibilityBanks[bankKey];
+  renderIndicatorRows(bank, eligibilityIndicators, eligibilityBody);
+};
+
+// --- UI rendering: comparison list ---
+const renderComparison = (activeKey) => {
+  const totals = state.bankOrder.map((key) => {
+    const bank = state.banks[key];
+    return {
+      key,
+      name: bank.name,
+      score: getTotalScore(bank),
+    };
+  });
+
+  totals.sort((a, b) => b.score - a.score);
+  const scores = totals.map((item) => item.score).sort((a, b) => a - b);
+  const mid = Math.floor(scores.length / 2);
+  const median = scores.length % 2 === 0 ? Math.round((scores[mid - 1] + scores[mid]) / 2) : scores[mid];
+
+  if (peerMedianEl) {
+    peerMedianEl.textContent = `Median score: ${median}`;
+  }
+  scoreList.innerHTML = "";
+
+  totals.forEach((item) => {
+    const scoreItem = document.createElement("div");
+    scoreItem.className = "score-item";
+    scoreItem.dataset.bank = item.key;
+    scoreItem.setAttribute("role", "button");
+    scoreItem.tabIndex = 0;
+    scoreItem.title = "View scorecard";
+    if (item.key === activeKey) {
+      scoreItem.classList.add("active");
+    }
+    const tier = getTier(item.score).toLowerCase();
+    scoreItem.classList.add(`tier-${tier}`);
+
+    const head = document.createElement("div");
+    head.className = "score-head";
+
+    const value = document.createElement("span");
+    value.className = "score-value";
+    value.textContent = `${item.score} / 100`;
+
+    const name = document.createElement("span");
+    name.className = "score-name";
+    name.textContent = item.name;
+
+    head.append(value, name);
+
+    const bar = document.createElement("div");
+    bar.className = "score-bar";
+    const barFill = document.createElement("span");
+    barFill.style.setProperty("--value", item.score / 100);
+    if (tier === "strong") {
+      barFill.style.setProperty("--tier-color", "rgba(46, 217, 184, 0.9)");
+      barFill.style.setProperty("--tier-color-fade", "rgba(46, 217, 184, 0.4)");
+    } else if (tier === "moderate") {
+      barFill.style.setProperty("--tier-color", "rgba(242, 169, 59, 0.9)");
+      barFill.style.setProperty("--tier-color-fade", "rgba(242, 169, 59, 0.4)");
+    } else {
+      barFill.style.setProperty("--tier-color", "rgba(255, 111, 125, 0.9)");
+      barFill.style.setProperty("--tier-color-fade", "rgba(255, 111, 125, 0.4)");
+    }
+    bar.appendChild(barFill);
+
+    scoreItem.append(head, bar);
+    scoreList.appendChild(scoreItem);
+  });
+
+  const activeItem = scoreList.querySelector(".score-item.active");
+  if (activeItem) {
+    activeItem.classList.add("active");
+  }
+};
+
+const renderEligibilityComparison = (activeKey) => {
+  const maxScore = state.eligibilityMaxScore || eligibilityMaxScore || 0;
+  const totals = state.eligibilityOrder.map((key) => {
+    const bank = state.eligibilityBanks[key];
+    return {
+      key,
+      name: bank.name,
+      score: getEligibilityTotalScore(bank),
+    };
+  });
+
+  totals.sort((a, b) => b.score - a.score);
+  scoreList.innerHTML = "";
+
+  if (!totals.length) {
+    scoreList.innerHTML = '<div class="empty-state">No eligibility results yet.</div>';
+    return;
+  }
+
+  totals.forEach((item) => {
+    const scoreItem = document.createElement("div");
+    scoreItem.className = "score-item";
+    scoreItem.dataset.bank = item.key;
+    scoreItem.setAttribute("role", "button");
+    scoreItem.tabIndex = 0;
+    scoreItem.title = "View eligibility score";
+    if (item.key === activeKey) {
+      scoreItem.classList.add("active");
+    }
+
+    const head = document.createElement("div");
+    head.className = "score-head";
+
+    const value = document.createElement("span");
+    value.className = "score-value";
+    value.textContent = `${item.score} / ${maxScore || 0}`;
+
+    const name = document.createElement("span");
+    name.className = "score-name";
+    name.textContent = item.name;
+
+    head.append(value, name);
+
+    const bar = document.createElement("div");
+    bar.className = "score-bar";
+    const barFill = document.createElement("span");
+    const ratio = maxScore ? item.score / maxScore : 0;
+    barFill.style.setProperty("--value", Math.max(0, Math.min(1, ratio)));
+    bar.appendChild(barFill);
+
+    scoreItem.append(head, bar);
+    scoreList.appendChild(scoreItem);
+  });
+
+  const activeItem = scoreList.querySelector(".score-item.active");
+  if (activeItem) {
+    activeItem.classList.add("active");
+  }
+};
+
+const getMedianScore = () => {
+  const scores = state.bankOrder
+    .map((key) => getTotalScore(state.banks[key]))
+    .filter((score) => typeof score === "number")
+    .sort((a, b) => a - b);
+  if (!scores.length) {
+    return null;
+  }
+  const mid = Math.floor(scores.length / 2);
+  if (scores.length % 2 === 0) {
+    return Math.round((scores[mid - 1] + scores[mid]) / 2);
+  }
+  return scores[mid];
+};
+
+// --- UI rendering: bank tabs ---
+const renderBankTabs = () => {
+  bankTabs.innerHTML = "";
+  state.bankOrder.forEach((key) => {
+    const bank = state.banks[key];
+    const button = document.createElement("button");
+    button.className = "bank-tab";
+    button.dataset.bank = key;
+    button.textContent = bank.name;
+    const tier = getTier(getTotalScore(bank)).toLowerCase();
+    button.classList.add(`tier-${tier}`);
+    if (key === state.activeBankKey) {
+      button.classList.add("active");
+    }
+    bankTabs.appendChild(button);
+  });
+};
+
+const renderEligibilityTabs = () => {
+  if (!eligibilityTabs) {
+    return;
+  }
+  eligibilityTabs.innerHTML = "";
+  state.eligibilityOrder.forEach((key) => {
+    const bank = state.eligibilityBanks[key];
+    const button = document.createElement("button");
+    button.className = "bank-tab";
+    button.dataset.bank = key;
+    button.textContent = bank.name;
+    const status = getEligibilityStatus(bank);
+    button.classList.add(`tier-${status}`);
+    if (key === state.activeEligibilityKey) {
+      button.classList.add("active");
+    }
+    eligibilityTabs.appendChild(button);
+  });
+};
+
+// --- UI rendering: active bank summary ---
+const updateActiveBank = (bankKey) => {
+  if (!state.banks[bankKey]) {
+    return;
+  }
+  state.activeBankKey = bankKey;
+  const bank = state.banks[bankKey];
+
+  if (state.outputMode === "extraction" && selectedBankChip) {
+    selectedBankChip.textContent = bank.name;
+  }
+  runBankName.textContent = bank.name;
+
+  const totalScore = getTotalScore(bank);
+  totalScoreEl.textContent = totalScore;
+  scoreTierEl.textContent = getTier(totalScore);
+
+  const flags = getFlags(bank);
+  scoreFlagsEl.textContent = flags.length ? `${flags.length} flags` : "0 flags";
+  scoreNotesEl.textContent = flags.length ? flags.join(" | ") : "No critical warnings";
+
+  const coverageScore = getCoveragePercent(bank);
+  healthValue.textContent = `${coverageScore}%`;
+  if (confidenceRing) {
+    confidenceRing.style.setProperty("--progress", (coverageScore / 100).toFixed(2));
+  }
+
+  updateIndicatorDonut(bank);
+  renderFeatureRows(bankKey);
+  if (state.outputMode === "extraction") {
+    renderComparison(bankKey);
+  }
+  renderBankTabs();
+  updateTierCounts();
+  updateBankCounts();
+  scheduleOutputPanelHeight();
+};
+
+const updateActiveEligibilityBank = (bankKey) => {
+  if (!state.eligibilityBanks[bankKey]) {
+    return;
+  }
+  state.activeEligibilityKey = bankKey;
+  const bank = state.eligibilityBanks[bankKey];
+
+  if (state.outputMode === "eligibility" && selectedBankChip) {
+    selectedBankChip.textContent = bank.name;
+  }
+  runBankName.textContent = bank.name;
+
+  const totalScore = getEligibilityTotalScore(bank);
+  const percent = getEligibilityPercent(bank);
+  if (eligibilityScoreEl) {
+    eligibilityScoreEl.textContent = totalScore;
+  }
+  if (eligibilityMaxEl) {
+    const max = state.eligibilityMaxScore || eligibilityMaxScore;
+    eligibilityMaxEl.textContent = `Out of ${max || 0}`;
+  }
+  const status = getEligibilityStatus(bank);
+  if (eligibilityTierEl) {
+    eligibilityTierEl.textContent = status === "strong" ? "Strong" : status === "moderate" ? "Moderate" : "Weak";
+  }
+  if (eligibilityTierNoteEl) {
+    eligibilityTierNoteEl.textContent =
+      status === "strong"
+        ? "NPL < 8 and rating AA/AAA"
+        : status === "moderate"
+        ? "Eligibility not met"
+        : "Missing NPL or rating";
+  }
+
+  const flags = getEligibilityFlags(bank);
+  if (eligibilityFlagsEl) {
+    eligibilityFlagsEl.textContent = flags.length ? `${flags.length} flags` : "0 flags";
+  }
+  if (eligibilityNotesEl) {
+    eligibilityNotesEl.textContent = flags.length ? flags.join(" | ") : "No eligibility warnings";
+  }
+
+  renderEligibilityRows(bankKey);
+  renderEligibilityTabs();
+  if (state.outputMode === "eligibility") {
+    renderEligibilityComparison(bankKey);
+  }
+  scheduleOutputPanelHeight();
+};
+
+const slugify = (value) => {
+  if (!value) {
+    return "unknown";
+  }
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+};
+
+// --- Bank name matching helpers ---
+const normalizeBankName = (name) =>
+  name
+    .toLowerCase()
+    .replace(/[()]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const findBankKeyByName = (name) => {
+  const normalized = normalizeBankName(name);
+  return state.bankOrder.find((key) => {
+    const candidate = normalizeBankName(state.banks[key].name);
+    return candidate === normalized || candidate.includes(normalized) || normalized.includes(candidate);
+  });
+};
+
+const findRunBankIndex = (name) => {
+  const normalized = normalizeBankName(name);
+  return state.runBankOrder.findIndex((bank) => normalizeBankName(bank) === normalized);
+};
+
+const setRunBankOrder = (banks) => {
+  state.runBankOrder = banks.filter(Boolean);
+  if (!state.totalBanks) {
+    state.totalBanks = state.runBankOrder.length;
+  } else {
+    state.totalBanks = Math.max(state.totalBanks, state.runBankOrder.length);
+  }
+  updateBankCounts();
+};
+
+// --- Progress updates from log steps ---
+const updateProgressForStep = (stepIndex) => {
+  if (!state.totalBanks) {
+    const stepProgress = (stepIndex + 1) / stepItems.length;
+    setProgress(stepProgress * 100);
+    return;
+  }
+  const base = state.currentBankIndex / state.totalBanks;
+  const stepPortion = (stepIndex + 1) / stepItems.length / state.totalBanks;
+  setProgress((base + stepPortion) * 100);
+};
+
+// --- Live log parsing ---
+const handleLogLine = (line) => {
+  if (!line) {
+    return;
+  }
+  addLog(line);
+
+  const processingMatch = line.match(/^Processing\s+(.+?)\s+\d{4}/);
+  const eligibilityMatch = line.match(/^Eligibility scan:\s+(.+?)\s+\d{4}/);
+  if (processingMatch || eligibilityMatch) {
+    const bankName = (processingMatch ? processingMatch[1] : eligibilityMatch[1]).trim();
+    runBankName.textContent = bankName;
+    const runIndex = findRunBankIndex(bankName);
+    if (runIndex >= 0) {
+      state.currentBankIndex = runIndex;
+    } else {
+      state.currentBankIndex = state.runBankOrder.length;
+      state.runBankOrder.push(bankName);
+      state.totalBanks = Math.max(state.totalBanks, state.runBankOrder.length);
+      updateBankCounts();
+    }
+    const key = findBankKeyByName(bankName);
+    if (key) {
+      updateActiveBank(key);
+    }
+    resetSteps();
+    setStepActive(0);
+    updateProgressForStep(0);
+    return;
+  }
+
+  if (line.startsWith("Downloading PDF")) {
+    setStepActive(1);
+    updateProgressForStep(1);
+    return;
+  }
+
+  if (line.startsWith("Scanning PDF")) {
+    const idx = state.currentRunType === "eligibility" ? 2 : 2;
+    setStepActive(idx);
+    updateProgressForStep(idx);
+    return;
+  }
+
+  if (line.startsWith("Scanning pages")) {
+    const idx = state.currentRunType === "eligibility" ? 2 : 3;
+    setStepActive(idx);
+    updateProgressForStep(idx);
+    return;
+  }
+
+  if (state.currentRunType === "eligibility") {
+    if (line.startsWith("Eligibility result")) {
+      setStepActive(3);
+      updateProgressForStep(3);
+      return;
+    }
+    if (line.startsWith("APEX sent") || line.startsWith("APEX response")) {
+      setStepActive(stepItems.length - 1);
+      updateProgressForStep(stepItems.length - 1);
+      return;
+    }
+  } else if (line.startsWith("Total score")) {
+    setStepActive(4);
+    updateProgressForStep(4);
+    return;
+  }
+
+  if (line.startsWith("Saved")) {
+    setStepActive(stepItems.length - 1);
+    updateProgressForStep(stepItems.length - 1);
+    return;
+  }
+};
+
+// --- Run lifecycle helpers ---
+const finalizeRun = (runType = "extraction") => {
+  const config = runConfigs[runType] || runConfigs.extraction;
+  overlay.classList.add("complete");
+  statusLabel.textContent = config.completedStatus || config.statusText || "Complete";
+  setProgress(100);
+  progressHint.textContent = config.completeHint;
+  resultValue.textContent = config.resultValue;
+  resultMeta.textContent = config.resultMeta;
+  if (resultDelta) {
+    if (runType === "extraction") {
+      if (state.activeBankKey) {
+        const median = getMedianScore();
+        const current = getTotalScore(state.banks[state.activeBankKey]);
+        if (median !== null && typeof current === "number") {
+          const delta = current - median;
+          const sign = delta >= 0 ? "+" : "";
+          resultDelta.textContent = `Peer median delta: ${sign}${delta}`;
+        } else {
+          resultDelta.textContent = "Peer median delta: N/A";
+        }
+      } else {
+        resultDelta.textContent = "Peer median delta: N/A";
+      }
+    } else {
+      resultDelta.textContent = config.deltaLabel;
+    }
+  }
+  setButtonsDisabled(false);
+  state.running = false;
+  state.currentRunType = null;
+  state.runSource = null;
+  clearRunStatusSnapshot();
+  clearRunUiSnapshot();
+  stopRunStatusPolling();
+  updateStopButtonState();
+  syncOverlayToggle();
+};
+
+// --- Start scraper run (SSE stream) ---
+const startRunMode = (runType) => {
+  const config = runConfigs[runType] || runConfigs.extraction;
+  if (state.running) {
+    showOverlay();
+    startRunStatusPolling();
+    loadRunStatus(true);
+    return;
+  }
+  if (state.runSource) {
+    state.runSource.close();
+  }
+
+  state.running = true;
+  state.currentRunType = runType;
+  overlay.classList.add("show");
+  overlay.classList.remove("complete");
+  document.body.classList.add("locked");
+  syncOverlayToggle();
+  setButtonsDisabled(true);
+  statusLabel.textContent = config.statusText || "Running";
+  if (runTitle) {
+    runTitle.textContent = config.runTitle || "Running";
+  }
+  setRunSteps(runType);
+  state.currentBankIndex = 0;
+  if (runType === "extraction") {
+    state.banks = {};
+    state.bankOrder = [];
+    state.activeBankKey = null;
+    renderBankTabs();
+    if (featureBody) {
+      featureBody.innerHTML = "";
+    }
+    if (scoreList) {
+      scoreList.innerHTML = '<div class="empty-state">Waiting for extraction results...</div>';
+    }
+    updateTierCounts();
+    updateBankCounts();
+    setOutputMode("extraction");
+  }
+  setProgress(0);
+  progressHint.textContent = config.initialHint || "Waiting for run";
+  resetSteps();
+  if (runType === "eligibility") {
+    setOutputMode("eligibility");
+  }
+
+  state.runStart = Date.now();
+  startRunStatusPolling();
+  addLog(`Run started: ${config.label}`);
+
+  const source = new EventSource(config.endpoint);
+  state.runSource = source;
+
+  source.onmessage = (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      if (payload.type === "log") {
+        handleLogLine(payload.line);
+      }
+      if (payload.type === "eligibility") {
+        applyEligibilityRecord(payload.record);
+      }
+      if (payload.type === "extraction") {
+        applyExtractionRecord(payload.record);
+      }
+      if (payload.type === "complete") {
+        source.close();
+        const completedRun = payload.run || runType;
+        finalizeRun(completedRun);
+        const completedConfig = runConfigs[completedRun] || config;
+        if (completedConfig.onComplete) {
+          completedConfig.onComplete();
+        }
+      }
+      if (payload.type === "error") {
+        const message = String(payload.message || "");
+        if (message.toLowerCase().includes("already in progress")) {
+          addLog(`Info: ${message}`);
+          source.close();
+          state.runSource = null;
+          state.running = true;
+          showOverlay();
+          startRunStatusPolling();
+          loadRunStatus(true);
+          return;
+        }
+        addLog(`Error: ${payload.message}`);
+        source.close();
+        state.runSource = null;
+        finalizeRun(runType);
+      }
+    } catch (error) {
+      addLog(event.data);
+    }
+  };
+
+  source.onerror = () => {
+    addLog("Connection lost. Make sure ui_server.py is running.");
+    source.close();
+    state.runSource = null;
+    loadRunStatus(true);
+  };
+};
+
+const startRun = () => startRunMode("extraction");
+const startEligibilityRun = () => startRunMode("eligibility");
+
+const stopRunStatusPolling = () => {
+  if (state.statusPollTimer) {
+    clearInterval(state.statusPollTimer);
+    state.statusPollTimer = null;
+  }
+};
+
+const applyRunStatus = (runs, announce = false) => {
+  const extraction = runs.extraction || {};
+  const eligibility = runs.eligibility || {};
+  const activeType = extraction.running ? "extraction" : eligibility.running ? "eligibility" : null;
+
+  if (!activeType) {
+    state.running = false;
+    state.currentRunType = null;
+    clearRunStatusSnapshot();
+    clearRunUiSnapshot();
+    setButtonsDisabled(false);
+    stopRunStatusPolling();
+    updateStopButtonState();
+    return;
+  }
+
+  const active = runs[activeType] || {};
+  const config = runConfigs[activeType] || runConfigs.extraction;
+  state.running = true;
+  state.currentRunType = activeType;
+  saveRunStatusSnapshot(runs);
+  if (announce) {
+    overlay.classList.remove("complete");
+    showOverlay();
+  }
+  statusLabel.textContent = config.statusText || "Running";
+  if (runTitle) {
+    runTitle.textContent = config.runTitle || "Running";
+  }
+  setRunSteps(activeType);
+
+  const completed = Number(active.completed_banks || 0);
+  const total = Number(active.total_banks || 0);
+  const percent = total > 0 ? Math.min(99, Math.round((completed / total) * 100)) : Math.min(95, completed * 3);
+  setProgress(percent);
+
+  if (active.current_bank && runBankName) {
+    runBankName.textContent = active.current_bank;
+  }
+  if (active.current_bank && total > 0) {
+    progressHint.textContent = `Processing ${active.current_bank} (${completed}/${total})`;
+  } else if (active.current_bank) {
+    progressHint.textContent = `Processing ${active.current_bank}...`;
+  } else if (total > 0) {
+    progressHint.textContent = `Processed ${completed}/${total} banks`;
+  } else {
+    progressHint.textContent = `Processed ${completed} banks`;
+  }
+
+  setButtonsDisabled(true);
+  syncOverlayToggle();
+
+  const statusKey = `${activeType}:${completed}:${total}:${active.current_bank || ""}`;
+  if (announce && state.lastStatusKey !== statusKey) {
+    addLog(`Background ${activeType} run in progress (${completed}/${total || "?"}).`);
+  }
+  state.lastStatusKey = statusKey;
+  saveRunUiSnapshot();
+};
+
+const loadRunStatus = async (announce = false) => {
+  const candidates = [state.statusEndpoint, ...RUN_STATUS_ENDPOINTS].filter(
+    (endpoint, index, list) => endpoint && list.indexOf(endpoint) === index
+  );
+  for (const endpoint of candidates) {
+    try {
+      const response = await fetch(`${endpoint}?ts=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) {
+        if (response.status === 404) {
+          continue;
+        }
+        return;
+      }
+      const data = await response.json();
+      const runs = data.runs || {};
+      state.statusEndpoint = endpoint;
+      state.statusFetchErrorLogged = false;
+      applyRunStatus(runs, announce);
+      return;
+    } catch (error) {
+      continue;
+    }
+  }
+  if (announce && !state.statusFetchErrorLogged) {
+    addLog("Run status endpoint not found (404). Check API route in ui_server.py.");
+    state.statusFetchErrorLogged = true;
+  }
+};
+
+const startRunStatusPolling = () => {
+  if (state.statusPollTimer) {
+    return;
+  }
+  state.statusPollTimer = setInterval(() => {
+    loadRunStatus(false);
+  }, 2000);
+};
+
+const stopRunProcesses = async () => {
+  try {
+    const response = await fetch("/api/stop-run?type=all");
+    console.log(response);
+    if (!response.ok) {
+      throw new Error("Failed to stop process");
+    }
+    const data = await response.json();
+    const stopped = Array.isArray(data.stopped) ? data.stopped : [];
+    if (stopped.length) {
+      addLog(`Stopped: ${stopped.join(", ")}`);
+    } else {
+      addLog("No active scraper process to stop.");
+    }
+    if (state.runSource) {
+      state.runSource.close();
+      state.runSource = null;
+    }
+    stopRunStatusPolling();
+    state.running = false;
+    state.currentRunType = null;
+    clearRunStatusSnapshot();
+    clearRunUiSnapshot();
+    overlay.classList.remove("complete");
+    setButtonsDisabled(false);
+    updateStopButtonState();
+    hideOverlay();
+    await loadRunStatus(true);
+  } catch (error) {
+    addLog("Failed to stop process. Check ui_server.py logs.");
+  }
+};
+
+// --- Scorecard data loading ---
+const setBanks = (banks) => {
+  state.banks = {};
+  state.bankOrder = [];
+  banks.forEach((bank) => {
+    state.banks[bank.key] = bank;
+    state.bankOrder.push(bank.key);
+  });
+  if (!state.totalBanks) {
+    state.totalBanks = state.bankOrder.length;
+  }
+  if (!state.runBankOrder.length) {
+    setRunBankOrder(state.bankOrder.map((key) => state.banks[key].name));
+  }
+  if (!state.activeBankKey && state.bankOrder.length) {
+    state.activeBankKey = state.bankOrder[0];
+  }
+  updateActiveBank(state.activeBankKey);
+  updateTierCounts();
+  updateBankCounts();
+  scheduleOutputPanelHeight();
+};
+
+const setEligibilityBanks = (banks) => {
+  state.eligibilityBanks = {};
+  state.eligibilityOrder = [];
+  banks.forEach((bank) => {
+    state.eligibilityBanks[bank.key] = bank;
+    state.eligibilityOrder.push(bank.key);
+  });
+  if (!state.activeEligibilityKey && state.eligibilityOrder.length) {
+    state.activeEligibilityKey = state.eligibilityOrder[0];
+  }
+  if (state.activeEligibilityKey) {
+    updateActiveEligibilityBank(state.activeEligibilityKey);
+  } else {
+    renderEligibilityTabs();
+  }
+  scheduleOutputPanelHeight();
+};
+
+const applyEligibilityRecord = (record) => {
+  if (!record || !record.bank) {
+    return;
+  }
+  const key = slugify(record.bank);
+  const existing = state.eligibilityBanks[key] || { key, name: record.bank, indicators: {} };
+  existing.name = record.bank;
+  existing.year = record.year;
+  existing.indicators.npl = {
+    value: record.npl,
+    score: record.nplScore,
+    page: record.nplPage,
+    sourceUrl: record.nplSource,
+  };
+  existing.indicators.creditRating = {
+    value: record.rating,
+    score: record.ratingScore,
+    page: record.ratingPage,
+    sourceUrl: record.ratingSource,
+  };
+  state.eligibilityBanks[key] = existing;
+  if (!state.eligibilityOrder.includes(key)) {
+    state.eligibilityOrder.push(key);
+  }
+  if (!state.activeEligibilityKey) {
+    state.activeEligibilityKey = key;
+  }
+  renderEligibilityTabs();
+  if (state.outputMode === "eligibility") {
+    updateActiveEligibilityBank(key);
+  } else if (state.activeEligibilityKey) {
+    renderEligibilityComparison(state.activeEligibilityKey);
+  }
+};
+
+const applyExtractionRecord = (record) => {
+  if (!record || !record.key) {
+    return;
+  }
+  state.banks[record.key] = record;
+  if (!state.bankOrder.includes(record.key)) {
+    state.bankOrder.push(record.key);
+  }
+  if (!state.activeBankKey) {
+    state.activeBankKey = record.key;
+  }
+  renderBankTabs();
+  if (state.outputMode === "extraction") {
+    updateActiveBank(record.key);
+  } else if (state.activeBankKey) {
+    renderComparison(state.activeBankKey);
+  }
+  updateTierCounts();
+  updateBankCounts();
+  scheduleOutputPanelHeight();
+};
+
+// --- API calls: sources ---
+const loadSources = async () => {
+  try {
+    const response = await fetch("/api/sources");
+    if (!response.ok) {
+      return;
+    }
+    const data = await response.json();
+    if (Array.isArray(data.sources) && data.sources.length) {
+      setRunBankOrder(data.sources.map((entry) => entry.bank));
+    }
+  } catch (error) {
+    return;
+  }
+};
+
+// --- API calls: scorecards ---
+const loadScorecards = async () => {
+  try {
+    const response = await fetch("/api/scorecards");
+    if (!response.ok) {
+      throw new Error("Failed to load scorecards");
+    }
+    const data = await response.json();
+    if (data.banks && data.banks.length) {
+      setBanks(data.banks);
+      scheduleOutputPanelHeight();
+      return;
+    }
+  } catch (error) {
+    addLog("Scorecard data not available yet. Run extraction to stream live results.");
+  }
+};
+
+const loadEligibilityScorecards = async () => {
+  try {
+    const response = await fetch("/api/eligibility-scorecards");
+    if (!response.ok) {
+      throw new Error("Failed to load eligibility scorecards");
+    }
+    const data = await response.json();
+    if (data.banks && data.banks.length) {
+      setEligibilityBanks(data.banks);
+      scheduleOutputPanelHeight();
+      return;
+    }
+    if (eligibilityBody) {
+      eligibilityBody.innerHTML = '<div class="empty-state">No eligibility scan data yet.</div>';
+    }
+  } catch (error) {
+    return;
+  }
+};
+
+// --- Event listeners ---
+closeOverlay.addEventListener("click", () => {
+  hideOverlay();
+  if (scoreSection) {
+    scoreSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+});
+
+if (openOverlayBtn) {
+  openOverlayBtn.addEventListener("click", () => {
+    showOverlay();
+  });
+}
+
+runButtons.forEach((button) => {
+  button.addEventListener("click", startRun);
+});
+
+if (eligibilityBtn) {
+  eligibilityBtn.addEventListener("click", startEligibilityRun);
+}
+
+if (stopRunBtn) {
+  stopRunBtn.addEventListener("click", stopRunProcesses);
+}
+
+if (viewScorecardBtn && scoreSection) {
+  viewScorecardBtn.addEventListener("click", () => {
+    scoreSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+if (bankTabs) {
+  bankTabs.addEventListener("click", (event) => {
+    const button = event.target.closest(".bank-tab");
+    if (!button) {
+      return;
+    }
+    updateActiveBank(button.dataset.bank);
+  });
+}
+
+if (eligibilityTabs) {
+  eligibilityTabs.addEventListener("click", (event) => {
+    const button = event.target.closest(".bank-tab");
+    if (!button) {
+      return;
+    }
+    updateActiveEligibilityBank(button.dataset.bank);
+  });
+}
+
+if (scoreList) {
+  scoreList.addEventListener("click", (event) => {
+    const item = event.target.closest(".score-item");
+    if (!item) {
+      return;
+    }
+    if (state.outputMode === "eligibility") {
+      updateActiveEligibilityBank(item.dataset.bank);
+    } else {
+      updateActiveBank(item.dataset.bank);
+    }
+  });
+  scoreList.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar") {
+      return;
+    }
+    const item = event.target.closest(".score-item");
+    if (!item) {
+      return;
+    }
+    event.preventDefault();
+    if (state.outputMode === "eligibility") {
+      updateActiveEligibilityBank(item.dataset.bank);
+    } else {
+      updateActiveBank(item.dataset.bank);
+    }
+  });
+}
+
+function setOutputPanelHeight() {
+  if (!outputPanels) {
+    return;
+  }
+  const activePanel = outputPanels.querySelector(".output-panel.active");
+  if (!activePanel) {
+    return;
+  }
+  outputPanels.style.height = `${activePanel.offsetHeight}px`;
+}
+
+const scheduleOutputPanelHeight = () => {
+  if (!outputPanels) {
+    return;
+  }
+  const recompute = () => {
+    setOutputPanelHeight();
+  };
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      recompute();
+      setTimeout(recompute, 120);
+    });
+  });
+};
+
+function setOutputMode(mode) {
+  if (!outputTabs || !outputPanels) {
+    state.outputMode = mode;
+    return;
+  }
+  state.outputMode = mode;
+  outputTabs.querySelectorAll(".output-tab").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.mode === mode);
+  });
+  outputPanels.querySelectorAll(".output-panel").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.mode === mode);
+  });
+  if (mode === "eligibility") {
+    if (!state.activeEligibilityKey && state.eligibilityOrder.length) {
+      state.activeEligibilityKey = state.eligibilityOrder[0];
+    }
+    if (state.activeEligibilityKey) {
+      updateActiveEligibilityBank(state.activeEligibilityKey);
+    }
+    if (comparisonSub) {
+      comparisonSub.textContent = "Ranked by eligibility score";
+    }
+    if (featureSub) {
+      featureSub.textContent = "3 eligibility indicators with benchmark scoring";
+    }
+    if (indicatorCountEl) {
+      indicatorCountEl.textContent = "3";
+    }
+    if (indicatorLabelEl) {
+      indicatorLabelEl.textContent = "Eligibility benchmarked";
+    }
+    renderEligibilityComparison(state.activeEligibilityKey);
+  } else if (state.activeBankKey) {
+    updateActiveBank(state.activeBankKey);
+    if (comparisonSub) {
+      comparisonSub.textContent = "Ranked by 12-indicator score";
+    }
+    if (featureSub) {
+      featureSub.textContent = "12 regulatory indicators with benchmark scoring";
+    }
+    if (indicatorCountEl) {
+      indicatorCountEl.textContent = "12";
+    }
+    if (indicatorLabelEl) {
+      indicatorLabelEl.textContent = "Regulatory benchmarked";
+    }
+    renderComparison(state.activeBankKey);
+  }
+  scheduleOutputPanelHeight();
+}
+
+if (outputTabs) {
+  outputTabs.addEventListener("click", (event) => {
+    const button = event.target.closest(".output-tab");
+    if (!button) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    setOutputMode(button.dataset.mode || "extraction");
+  });
+}
+
+if (outputTabs) {
+  outputTabs.addEventListener(
+    "mousedown",
+    (event) => {
+      if (event.target.closest(".output-tab")) {
+        event.preventDefault();
+      }
+    },
+    true
+  );
+  outputTabs.addEventListener(
+    "mouseup",
+    (event) => {
+      if (event.target.closest(".output-tab")) {
+        event.preventDefault();
+      }
+    },
+    true
+  );
+}
+
+// --- Background parallax for glow orbs ---
+const glows = Array.from(document.querySelectorAll(".bg-glows .glow"));
+if (glows.length) {
+  let mouseX = 0;
+  let mouseY = 0;
+  let ticking = false;
+
+  const updateGlow = () => {
+    const scrollFactor = Math.min(window.scrollY / window.innerHeight, 1.5);
+    glows.forEach((glow) => {
+      const depth = Number(glow.dataset.depth || 10);
+      const x = mouseX * depth;
+      const y = mouseY * depth + scrollFactor * depth * 4;
+      glow.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    });
+    ticking = false;
+  };
+
+  const requestUpdate = () => {
+    if (!ticking) {
+      window.requestAnimationFrame(updateGlow);
+      ticking = true;
+    }
+  };
+
+  window.addEventListener("mousemove", (event) => {
+    mouseX = (event.clientX / window.innerWidth - 0.5) * 2;
+    mouseY = (event.clientY / window.innerHeight - 0.5) * 2;
+    requestUpdate();
+  });
+
+  window.addEventListener("scroll", () => {
+    requestUpdate();
+  }, { passive: true });
+
+  updateGlow();
+}
+
+// --- Initial boot ---
+window.addEventListener("load", () => {
+  document.body.classList.add("loaded");
+  const uiSnapshot = loadRunUiSnapshot();
+  if (uiSnapshot && uiSnapshot.running) {
+    state.running = true;
+    state.currentRunType = uiSnapshot.currentRunType || "extraction";
+    setButtonsDisabled(true);
+    statusLabel.textContent = uiSnapshot.statusLabel || "Running";
+    if (runBankName && uiSnapshot.runBank) {
+      runBankName.textContent = uiSnapshot.runBank;
+    }
+    if (progressHint) {
+      progressHint.textContent = uiSnapshot.progressHint || "Resuming previous run state...";
+    }
+    const progressMatch = String(uiSnapshot.progressText || "").match(/(\d+)/);
+    const restoredProgress = progressMatch ? Number(progressMatch[1]) : 0;
+    setProgress(Number.isFinite(restoredProgress) ? restoredProgress : 0);
+    showOverlay();
+  }
+  const snapshot = loadRunStatusSnapshot();
+  if (snapshot && snapshot.runs) {
+    applyRunStatus(snapshot.runs, true);
+  }
+  loadRunStatus(true);
+  startRunStatusPolling();
+  loadSources();
+  loadScorecards();
+  loadEligibilityScorecards();
+  scheduleOutputPanelHeight();
+  syncOverlayToggle();
+});
+
+window.addEventListener("resize", () => {
+  scheduleOutputPanelHeight();
+});

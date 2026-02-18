@@ -1,0 +1,10 @@
+requests
+beautifulsoup4
+lxml
+pdfplumber
+PyMuPDF
+pandas
+openpyxl
+tqdm
+pytesseract
+pillow
