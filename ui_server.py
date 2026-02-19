@@ -44,6 +44,8 @@ RUN_STATES = {
         "current_bank": None,
         "completed_banks": 0,
         "total_banks": 0,
+        "records": {},
+        "record_order": [],
     },
     "eligibility": {
         "running": False,
@@ -52,9 +54,14 @@ RUN_STATES = {
         "current_bank": None,
         "completed_banks": 0,
         "total_banks": 0,
+        "records": {},
+        "record_order": [],
     },
 }
 RUN_STATE_LOCK = threading.Lock()
+LAST_EXTRACTION_LOCK = threading.Lock()
+LAST_EXTRACTION_RECORDS = {}
+LAST_EXTRACTION_ORDER = []
 
 
 def _acquire_run_slot(run_type):
@@ -80,6 +87,8 @@ def _acquire_run_slot(run_type):
         state["current_bank"] = None
         state["completed_banks"] = 0
         state["total_banks"] = 0
+        state["records"] = {}
+        state["record_order"] = []
         return True
 
 
@@ -102,6 +111,8 @@ def _release_run_slot(run_type):
         state["current_bank"] = None
         state["completed_banks"] = 0
         state["total_banks"] = 0
+        state["records"] = {}
+        state["record_order"] = []
 
 
 def _set_run_total(run_type, total_banks):
@@ -128,6 +139,30 @@ def _increment_completed(run_type, bank_name=None):
         state["completed_banks"] = int(state.get("completed_banks") or 0) + 1
         if bank_name:
             state["current_bank"] = str(bank_name).strip()
+
+
+def _upsert_run_record(run_type, record):
+    if not isinstance(record, dict):
+        return
+    record_key = record.get("key")
+    if not record_key:
+        record_key = slugify(str(record.get("name") or record.get("bank") or ""))
+    if not record_key:
+        return
+    with RUN_STATE_LOCK:
+        state = RUN_STATES.get(run_type)
+        if not state:
+            return
+        records = state.setdefault("records", {})
+        order = state.setdefault("record_order", [])
+        records[record_key] = record
+        if record_key not in order:
+            order.append(record_key)
+    if run_type == "extraction":
+        with LAST_EXTRACTION_LOCK:
+            LAST_EXTRACTION_RECORDS[record_key] = record
+            if record_key not in LAST_EXTRACTION_ORDER:
+                LAST_EXTRACTION_ORDER.append(record_key)
 
 
 def _estimate_total_for_eligibility():
@@ -160,6 +195,11 @@ def _snapshot_run_states():
                 "current_bank": state.get("current_bank"),
                 "completed_banks": int(state.get("completed_banks") or 0),
                 "total_banks": int(state.get("total_banks") or 0),
+                "records": [
+                    state.get("records", {}).get(key)
+                    for key in state.get("record_order", [])
+                    if state.get("records", {}).get(key)
+                ],
             }
         return payload
 
@@ -402,6 +442,33 @@ def filter_sources_by_bank_names(sources_payload, bank_names):
         selected_norm.add(key)
         filtered.append(chosen)
     return filtered
+
+
+def filter_scorecards_by_bank_names(scorecards, bank_names):
+    if not scorecards or not bank_names:
+        return []
+    allowed = [normalize_bank_name(name) for name in bank_names if normalize_bank_name(name)]
+    if not allowed:
+        return []
+    filtered = []
+    for card in scorecards:
+        card_name = normalize_bank_name(card.get("name"))
+        if not card_name:
+            continue
+        for norm in allowed:
+            if card_name == norm or card_name in norm or norm in card_name:
+                filtered.append(card)
+                break
+    return filtered
+
+
+def _snapshot_last_extraction_scorecards():
+    with LAST_EXTRACTION_LOCK:
+        return [
+            LAST_EXTRACTION_RECORDS.get(key)
+            for key in LAST_EXTRACTION_ORDER
+            if LAST_EXTRACTION_RECORDS.get(key)
+        ]
 
 
 # --- File and field matching helpers ---
@@ -838,7 +905,16 @@ class Handler(BaseHTTPRequestHandler):
         return self.handle_static(path)
 
     def handle_scorecards(self):
-        payload = {"banks": build_scorecards()}
+        cards = _snapshot_last_extraction_scorecards()
+        if not cards:
+            cards = build_scorecards()
+        try:
+            eligible_banks = fetch_eligible_bank_names()
+            filtered = filter_scorecards_by_bank_names(cards, eligible_banks)
+            cards = filtered
+        except Exception:
+            pass
+        payload = {"banks": cards}
         data = json.dumps(payload).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -851,14 +927,21 @@ class Handler(BaseHTTPRequestHandler):
             sources_payload = json.loads(SOURCES_PATH.read_text(encoding="utf-8"))
         except Exception:
             sources_payload = {"sources": []}
+        all_sources = sources_payload.get("sources", []) if isinstance(sources_payload, dict) else []
+        eligible_sources = []
+        api_available = False
         try:
             eligible_banks = fetch_eligible_bank_names()
-            filtered = filter_sources_by_bank_names(sources_payload, eligible_banks)
-            if filtered:
-                sources_payload = {"sources": filtered}
+            eligible_sources = filter_sources_by_bank_names(sources_payload, eligible_banks)
+            api_available = True
         except Exception:
             pass
-        data = json.dumps(sources_payload).encode("utf-8")
+        payload = {
+            "sources": all_sources,
+            "eligible_sources": eligible_sources,
+            "eligible_api_available": api_available,
+        }
+        data = json.dumps(payload).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
@@ -1027,6 +1110,7 @@ class Handler(BaseHTTPRequestHandler):
                         payload = json.loads(text.split(" ", 1)[1])
                         record = payload.get("record") if isinstance(payload, dict) and "record" in payload else payload
                         if isinstance(record, dict):
+                            _upsert_run_record(run_type, record)
                             _increment_completed(run_type, record.get("name") or record.get("bank"))
                         if client_connected:
                             client_connected = self.send_event({"type": "extraction", "record": record or payload})
@@ -1038,6 +1122,7 @@ class Handler(BaseHTTPRequestHandler):
                     try:
                         payload = json.loads(text.split(" ", 1)[1])
                         record = build_eligibility_record(payload)
+                        _upsert_run_record(run_type, record)
                         _increment_completed(run_type, record.get("bank"))
                         if client_connected:
                             client_connected = self.send_event({"type": "eligibility", "record": record})

@@ -669,6 +669,12 @@ h1 {
   box-shadow: 0 0 12px rgba(46, 217, 184, 0.8);
 }
 
+.dot.active {
+  background: rgba(46, 217, 184, 0.95);
+  box-shadow: 0 0 14px rgba(46, 217, 184, 0.9);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
 .pipeline-title {
   margin: 0;
   font-size: 13px;
@@ -1671,6 +1677,55 @@ h1 {
   display: inline-flex;
 }
 
+/* --- Confirm modal --- */
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(5, 8, 12, 0.65);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 30;
+}
+
+.confirm-modal.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.confirm-card {
+  width: min(460px, 96vw);
+  background: rgba(10, 15, 24, 0.96);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 24px 48px rgba(2, 6, 12, 0.6);
+  padding: 18px;
+}
+
+.confirm-card h3 {
+  margin: 8px 0 10px;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.confirm-message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.confirm-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 /* --- Reveal animation helpers --- */
 .reveal {
   opacity: 0;
@@ -2114,6 +2169,19 @@ body.loaded .reveal {
 
   .overlay.complete .overlay-actions .primary {
     flex-basis: 100%;
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
   }
 }
 

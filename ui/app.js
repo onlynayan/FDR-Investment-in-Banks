@@ -18,6 +18,11 @@ let stepItems = Array.from(document.querySelectorAll("#stepList .step"));
 const logList = document.getElementById("logList");
 const closeOverlay = document.getElementById("closeOverlay");
 const openOverlayBtn = document.getElementById("openOverlay");
+const confirmModal = document.getElementById("confirmModal");
+const confirmTitle = document.getElementById("confirmTitle");
+const confirmMessage = document.getElementById("confirmMessage");
+const confirmOkBtn = document.getElementById("confirmOkBtn");
+const confirmCancelBtn = document.getElementById("confirmCancelBtn");
 const confidenceRing = document.getElementById("confidenceRing");
 const healthValue = document.getElementById("healthValue");
 const selectedBankChip = document.getElementById("selectedBankChip");
@@ -44,6 +49,10 @@ const indicatorDonut = document.getElementById("indicatorDonut");
 const indicatorDonutValue = document.getElementById("indicatorDonutValue");
 const indicatorCountEl = document.getElementById("indicatorCount");
 const indicatorLabelEl = document.getElementById("indicatorLabel");
+const readinessChip = document.getElementById("readinessChip");
+const readinessDots = [0, 1, 2].map((idx) => document.getElementById(`readinessDot${idx}`));
+const readinessTitles = [0, 1, 2].map((idx) => document.getElementById(`readinessTitle${idx}`));
+const readinessSubs = [0, 1, 2].map((idx) => document.getElementById(`readinessSub${idx}`));
 const outputTabs = document.getElementById("outputTabs");
 const outputPanels = document.getElementById("outputPanels");
 const eligibilityTabs = document.getElementById("eligibilityTabs");
@@ -217,6 +226,19 @@ const runSteps = {
   },
 };
 
+const readinessSteps = {
+  extraction: [
+    { title: "Seed discovery", sub: "Bank sites and data rooms" },
+    { title: "PDF scan + OCR", sub: "Extraction in progress" },
+    { title: "Scorecard build", sub: "12 indicators + ranking" },
+  ],
+  eligibility: [
+    { title: "Worklist sync", sub: "Eligible banks from APEX" },
+    { title: "Eligibility scan", sub: "3 indicators extraction" },
+    { title: "APEX update", sub: "Eligibility results sent" },
+  ],
+};
+
 // --- Formatting helpers ---
 const percentKeys = new Set([
   "crar",
@@ -270,6 +292,8 @@ const state = {
   lastStatusKey: "",
   statusEndpoint: null,
   statusFetchErrorLogged: false,
+  sourceTotalBanks: 0,
+  sourceEligibleBanks: 0,
 };
 
 const runConfigs = {
@@ -300,6 +324,8 @@ const runConfigs = {
     onComplete: () => loadEligibilityScorecards(),
   },
 };
+
+let confirmResolver = null;
 
 // --- Time and log utilities ---
 const pad = (num) => String(num).padStart(2, "0");
@@ -490,8 +516,67 @@ const updateRunButtonLabel = (progress) => {
     runBtn.textContent = defaultButtonLabels.get(runBtn) || "Run extraction";
     return;
   }
-  const value = Math.round(progress ?? 0);
-  runBtn.textContent = `Running ${value}%`;
+  runBtn.textContent = "Running";
+};
+
+const setReadinessDotState = (index, stateName) => {
+  const dot = readinessDots[index];
+  if (!dot) {
+    return;
+  }
+  dot.classList.toggle("ok", stateName === "ok");
+  dot.classList.toggle("active", stateName === "active");
+};
+
+const setReadinessContent = (runType) => {
+  const config = readinessSteps[runType] || readinessSteps.extraction;
+  config.forEach((step, idx) => {
+    if (readinessTitles[idx]) {
+      readinessTitles[idx].textContent = step.title;
+    }
+    if (readinessSubs[idx]) {
+      readinessSubs[idx].textContent = step.sub;
+    }
+  });
+};
+
+const setReadinessIdle = () => {
+  setReadinessContent("extraction");
+  setReadinessDotState(0, "ok");
+  setReadinessDotState(1, "ok");
+  setReadinessDotState(2, "pending");
+  if (readinessChip) {
+    readinessChip.textContent = "Ready";
+  }
+};
+
+const setReadinessActive = (runType, completed = 0, total = 0) => {
+  setReadinessContent(runType);
+  const percent = total > 0 ? Math.max(0, Math.min(100, Math.round((completed / total) * 100))) : Math.min(95, completed * 3);
+  let stage = 0;
+  if (percent >= 85) {
+    stage = 2;
+  } else if (percent >= 20) {
+    stage = 1;
+  }
+  for (let i = 0; i < 3; i += 1) {
+    if (i < stage) {
+      setReadinessDotState(i, "ok");
+    } else if (i === stage) {
+      setReadinessDotState(i, "active");
+    } else {
+      setReadinessDotState(i, "pending");
+    }
+  }
+  if (readinessChip) {
+    readinessChip.textContent = runType === "eligibility" ? "Eligibility" : "Running";
+  }
+  if (healthValue) {
+    healthValue.textContent = `${percent}%`;
+  }
+  if (confidenceRing) {
+    confidenceRing.style.setProperty("--progress", (percent / 100).toFixed(2));
+  }
 };
 
 // --- Overlay visibility helpers ---
@@ -515,6 +600,35 @@ const hideOverlay = () => {
   document.body.classList.remove("locked");
   syncOverlayToggle();
 };
+
+const closeConfirmModal = (value) => {
+  if (!confirmModal) {
+    return;
+  }
+  confirmModal.classList.remove("show");
+  confirmModal.setAttribute("aria-hidden", "true");
+  if (confirmResolver) {
+    const resolve = confirmResolver;
+    confirmResolver = null;
+    resolve(Boolean(value));
+  }
+};
+
+const openConfirmModal = (title, message) =>
+  new Promise((resolve) => {
+    if (!confirmModal || !confirmTitle || !confirmMessage) {
+      resolve(true);
+      return;
+    }
+    confirmResolver = resolve;
+    confirmTitle.textContent = title || "Confirm action";
+    confirmMessage.textContent = message || "Are you sure you want to continue?";
+    confirmModal.classList.add("show");
+    confirmModal.setAttribute("aria-hidden", "false");
+    if (confirmCancelBtn) {
+      confirmCancelBtn.focus();
+    }
+  });
 
 // --- Value formatting and scoring helpers ---
 const isMissingValue = (value) => {
@@ -659,11 +773,12 @@ const updateTierCounts = () => {
 
 const updateBankCounts = () => {
   if (totalBankCountEl) {
-    const total = state.totalBanks || state.runBankOrder.length || state.bankOrder.length || 0;
+    const total = state.sourceTotalBanks || state.totalBanks || state.runBankOrder.length || state.bankOrder.length || 0;
     totalBankCountEl.textContent = total;
   }
   if (eligibleBankCountEl) {
-    eligibleBankCountEl.textContent = state.bankOrder.length || 0;
+    const eligible = state.sourceEligibleBanks || state.runBankOrder.length || state.bankOrder.length || 0;
+    eligibleBankCountEl.textContent = eligible;
   }
 };
 
@@ -1046,6 +1161,37 @@ const updateActiveBank = (bankKey) => {
   scheduleOutputPanelHeight();
 };
 
+const resetExtractionView = (message = "No extraction data yet.") => {
+  state.activeBankKey = null;
+  if (selectedBankChip) {
+    selectedBankChip.textContent = "No bank selected";
+  }
+  if (totalScoreEl) {
+    totalScoreEl.textContent = "0";
+  }
+  if (scoreTierEl) {
+    scoreTierEl.textContent = "--";
+  }
+  if (scoreFlagsEl) {
+    scoreFlagsEl.textContent = "0 flags";
+  }
+  if (scoreNotesEl) {
+    scoreNotesEl.textContent = "Waiting for extraction output";
+  }
+  if (featureBody) {
+    featureBody.innerHTML = `<div class="empty-state">${message}</div>`;
+  }
+  if (bankTabs) {
+    bankTabs.innerHTML = "";
+  }
+  if (scoreList) {
+    scoreList.innerHTML = `<div class="empty-state">${message}</div>`;
+  }
+  updateTierCounts();
+  updateBankCounts();
+  scheduleOutputPanelHeight();
+};
+
 const updateActiveEligibilityBank = (bankKey) => {
   if (!state.eligibilityBanks[bankKey]) {
     return;
@@ -1292,16 +1438,7 @@ const startRunMode = (runType) => {
   if (runType === "extraction") {
     state.banks = {};
     state.bankOrder = [];
-    state.activeBankKey = null;
-    renderBankTabs();
-    if (featureBody) {
-      featureBody.innerHTML = "";
-    }
-    if (scoreList) {
-      scoreList.innerHTML = '<div class="empty-state">Waiting for extraction results...</div>';
-    }
-    updateTierCounts();
-    updateBankCounts();
+    resetExtractionView("Waiting for extraction results...");
     setOutputMode("extraction");
   }
   setProgress(0);
@@ -1392,6 +1529,7 @@ const applyRunStatus = (runs, announce = false) => {
     setButtonsDisabled(false);
     stopRunStatusPolling();
     updateStopButtonState();
+    setReadinessIdle();
     return;
   }
 
@@ -1410,8 +1548,16 @@ const applyRunStatus = (runs, announce = false) => {
   }
   setRunSteps(activeType);
 
+  if (activeType === "extraction" && Array.isArray(active.records) && active.records.length) {
+    active.records.forEach((record) => applyExtractionRecord(record));
+  }
+  if (activeType === "eligibility" && Array.isArray(active.records) && active.records.length) {
+    active.records.forEach((record) => applyEligibilityRecord(record));
+  }
+
   const completed = Number(active.completed_banks || 0);
   const total = Number(active.total_banks || 0);
+  setReadinessActive(activeType, completed, total);
   const percent = total > 0 ? Math.min(99, Math.round((completed / total) * 100)) : Math.min(95, completed * 3);
   setProgress(percent);
 
@@ -1478,6 +1624,21 @@ const startRunStatusPolling = () => {
 };
 
 const stopRunProcesses = async () => {
+  const activeLabel =
+    state.currentRunType === "eligibility"
+      ? "eligibility scan"
+      : state.currentRunType === "extraction"
+      ? "final extraction run"
+      : "running process";
+  const confirmed = await openConfirmModal(
+    "Close process?",
+    `Are you sure you want to close the ${activeLabel}? This will terminate execution.`
+  );
+  if (!confirmed) {
+    addLog("Close process cancelled. Run continues in background.");
+    return;
+  }
+
   try {
     const response = await fetch("/api/stop-run?type=all");
     console.log(response);
@@ -1518,6 +1679,10 @@ const setBanks = (banks) => {
     state.banks[bank.key] = bank;
     state.bankOrder.push(bank.key);
   });
+  if (!state.bankOrder.length) {
+    resetExtractionView("No final-score output yet.");
+    return;
+  }
   if (!state.totalBanks) {
     state.totalBanks = state.bankOrder.length;
   }
@@ -1616,9 +1781,16 @@ const loadSources = async () => {
       return;
     }
     const data = await response.json();
-    if (Array.isArray(data.sources) && data.sources.length) {
-      setRunBankOrder(data.sources.map((entry) => entry.bank));
+    const allSources = Array.isArray(data.sources) ? data.sources : [];
+    const eligibleSources = Array.isArray(data.eligible_sources) ? data.eligible_sources : [];
+    state.sourceTotalBanks = allSources.length;
+    state.sourceEligibleBanks = eligibleSources.length;
+    if (eligibleSources.length) {
+      setRunBankOrder(eligibleSources.map((entry) => entry.bank));
+    } else if (allSources.length) {
+      setRunBankOrder(allSources.map((entry) => entry.bank));
     }
+    updateBankCounts();
   } catch (error) {
     return;
   }
@@ -1637,7 +1809,9 @@ const loadScorecards = async () => {
       scheduleOutputPanelHeight();
       return;
     }
+    resetExtractionView("No final-score output yet.");
   } catch (error) {
+    resetExtractionView("Scorecard data not available yet.");
     addLog("Scorecard data not available yet. Run extraction to stream live results.");
   }
 };
@@ -1687,6 +1861,28 @@ if (eligibilityBtn) {
 if (stopRunBtn) {
   stopRunBtn.addEventListener("click", stopRunProcesses);
 }
+
+if (confirmOkBtn) {
+  confirmOkBtn.addEventListener("click", () => closeConfirmModal(true));
+}
+
+if (confirmCancelBtn) {
+  confirmCancelBtn.addEventListener("click", () => closeConfirmModal(false));
+}
+
+if (confirmModal) {
+  confirmModal.addEventListener("click", (event) => {
+    if (event.target === confirmModal) {
+      closeConfirmModal(false);
+    }
+  });
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && confirmModal && confirmModal.classList.contains("show")) {
+    closeConfirmModal(false);
+  }
+});
 
 if (viewScorecardBtn && scoreSection) {
   viewScorecardBtn.addEventListener("click", () => {
@@ -1801,8 +1997,7 @@ function setOutputMode(mode) {
       indicatorLabelEl.textContent = "Eligibility benchmarked";
     }
     renderEligibilityComparison(state.activeEligibilityKey);
-  } else if (state.activeBankKey) {
-    updateActiveBank(state.activeBankKey);
+  } else {
     if (comparisonSub) {
       comparisonSub.textContent = "Ranked by 12-indicator score";
     }
@@ -1815,7 +2010,12 @@ function setOutputMode(mode) {
     if (indicatorLabelEl) {
       indicatorLabelEl.textContent = "Regulatory benchmarked";
     }
-    renderComparison(state.activeBankKey);
+    if (state.activeBankKey && state.banks[state.activeBankKey]) {
+      updateActiveBank(state.activeBankKey);
+      renderComparison(state.activeBankKey);
+    } else {
+      resetExtractionView("No final-score output yet.");
+    }
   }
   scheduleOutputPanelHeight();
 }

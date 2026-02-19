@@ -99,7 +99,7 @@
                 <p class="panel-title">Run readiness</p>
                 <p class="panel-sub">Status of the 12-indicator pipeline</p>
               </div>
-              <div class="chip accent">Ready</div>
+              <div class="chip accent" id="readinessChip">Ready</div>
             </div>
             <div class="readiness-center">
               <div class="confidence-ring" id="confidenceRing" style="--progress: 0.85">
@@ -113,25 +113,25 @@
               </div>
             </div>
             <div class="pipeline">
-              <div class="pipeline-row">
-                <span class="dot ok"></span>
+              <div class="pipeline-row" id="readinessRow0">
+                <span class="dot ok" id="readinessDot0"></span>
                 <div>
-                  <p class="pipeline-title">Seed discovery</p>
-                  <p class="pipeline-sub">Bank sites and data rooms</p>
+                  <p class="pipeline-title" id="readinessTitle0">Seed discovery</p>
+                  <p class="pipeline-sub" id="readinessSub0">Bank sites and data rooms</p>
                 </div>
               </div>
-              <div class="pipeline-row">
-                <span class="dot ok"></span>
+              <div class="pipeline-row" id="readinessRow1">
+                <span class="dot ok" id="readinessDot1"></span>
                 <div>
-                  <p class="pipeline-title">PDF scan + OCR</p>
-                  <p class="pipeline-sub">Extraction ready</p>
+                  <p class="pipeline-title" id="readinessTitle1">PDF scan + OCR</p>
+                  <p class="pipeline-sub" id="readinessSub1">Extraction ready</p>
                 </div>
               </div>
-              <div class="pipeline-row">
-                <span class="dot"></span>
+              <div class="pipeline-row" id="readinessRow2">
+                <span class="dot" id="readinessDot2"></span>
                 <div>
-                  <p class="pipeline-title">Scorecard build</p>
-                  <p class="pipeline-sub">12 indicators + ranking</p>
+                  <p class="pipeline-title" id="readinessTitle2">Scorecard build</p>
+                  <p class="pipeline-sub" id="readinessSub2">12 indicators + ranking</p>
                 </div>
               </div>
             </div>
@@ -158,12 +158,12 @@
               <div class="score-summary">
                 <div class="summary-card">
                   <p class="summary-label">Total score</p>
-                  <p class="summary-value" id="totalScore">88</p>
+                  <p class="summary-value" id="totalScore">0</p>
                   <p class="summary-sub">Out of 100</p>
                 </div>
                 <div class="summary-card">
                   <p class="summary-label">Tier</p>
-                  <p class="summary-value" id="scoreTier">Strong</p>
+                  <p class="summary-value" id="scoreTier">--</p>
                   <p class="summary-sub">Regulatory benchmarked</p>
                 </div>
                 <div class="summary-card">
@@ -241,8 +241,8 @@
           <div class="console">
             <ul id="logList">
               <li><span class="console-time">00:00</span> Waiting for run command</li>
-              <li><span class="console-time">00:02</span> Loaded 4 banks | 12 indicators</li>
-              <li><span class="console-time">00:05</span> Last scorecard: BRAC Bank 88 / 100</li>
+              <li><span class="console-time">00:02</span> Waiting for first extraction output</li>
+              <li><span class="console-time">00:05</span> Open Live run to monitor background progress</li>
             </ul>
           </div>
           <div class="console-footer">
@@ -331,7 +331,7 @@
             <div class="result-core">
               <p class="section-title">Run summary</p>
               <p class="result-value" id="resultValue">12 indicators scored</p>
-              <p class="result-sub" id="resultMeta">Total score: 88 | Pages scanned: 216</p>
+              <p class="result-sub" id="resultMeta">Scorecards streamed live from scraper output</p>
               <p class="result-sub" id="resultDelta">Peer median delta: +6</p>
             </div>
           </div>
@@ -341,6 +341,21 @@
         <button class="ghost" id="closeOverlay">Hide window</button>
         <button class="ghost danger" id="stopRunBtn">Close process</button>
         <button class="primary" id="runAgainBtn">Run again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Close-process confirmation modal -->
+  <div class="confirm-modal" id="confirmModal" aria-hidden="true">
+    <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+      <p class="eyebrow">Confirm action</p>
+      <h3 id="confirmTitle">Close process?</h3>
+      <p class="confirm-message" id="confirmMessage">
+        Are you sure you want to close the running process? This will terminate execution.
+      </p>
+      <div class="confirm-actions">
+        <button class="ghost" id="confirmCancelBtn" type="button">Cancel</button>
+        <button class="ghost danger" id="confirmOkBtn" type="button">Confirm close</button>
       </div>
     </div>
   </div>
