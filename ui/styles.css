@@ -349,6 +349,15 @@ body.locked {
   gap: 12px;
 }
 
+.year-label {
+  font-size: 12px;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+
 .chip {
   background: rgba(15, 22, 34, 0.8);
   color: var(--muted);
@@ -2064,7 +2073,23 @@ body.loaded .reveal {
   }
 
   .top-actions {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .year-label {
+    grid-column: 1 / -1;
+    display: block;
+    padding: 0;
+    white-space: nowrap;
+  }
+
+  #eligibilityBtn,
+  #runBtn {
+    width: 100%;
+    text-align: center;
   }
 
   .brand-logos img {

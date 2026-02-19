@@ -5,6 +5,7 @@ const runBtnHero = document.getElementById("runBtnHero");
 const runAgainBtn = document.getElementById("runAgainBtn");
 const eligibilityBtn = document.getElementById("eligibilityBtn");
 const stopRunBtn = document.getElementById("stopRunBtn");
+const annualYearChip = document.getElementById("annualYearChip");
 const viewScorecardBtn = document.getElementById("viewScorecard");
 const scoreSection = document.getElementById("scoreSection");
 const overlay = document.getElementById("overlay");
@@ -1785,6 +1786,23 @@ const loadSources = async () => {
     const eligibleSources = Array.isArray(data.eligible_sources) ? data.eligible_sources : [];
     state.sourceTotalBanks = allSources.length;
     state.sourceEligibleBanks = eligibleSources.length;
+    const sourceForYear = eligibleSources.length ? eligibleSources : allSources;
+    const years = Array.from(
+      new Set(
+        sourceForYear
+          .map((entry) => Number(entry?.year))
+          .filter((year) => Number.isFinite(year) && year > 0)
+      )
+    ).sort((a, b) => b - a);
+    if (annualYearChip) {
+      if (years.length === 1) {
+        annualYearChip.textContent = `Year ${years[0]}`;
+      } else if (years.length > 1) {
+        annualYearChip.textContent = `Year ${years[0]}`;
+      } else {
+        annualYearChip.textContent = "Year --";
+      }
+    }
     if (eligibleSources.length) {
       setRunBankOrder(eligibleSources.map((entry) => entry.bank));
     } else if (allSources.length) {
