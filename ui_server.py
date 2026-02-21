@@ -8,6 +8,7 @@ import tempfile
 import time
 import argparse
 import threading
+import secrets
 from urllib.request import Request, urlopen
 from urllib.parse import quote, parse_qs, urlparse
 import subprocess
@@ -35,6 +36,9 @@ ELIGIBILITY_SCRAPER_ENTRY = "eligible_scraper.py"
 ELIGIBILITY_OUTPUT_DIR = ROOT / "eligible_output"
 ELIGIBLE_DOWNLOADS_DIR = ROOT / "eligible_downloads"
 ELIGIBLE_WORKLIST_API = "http://103.163.96.251:8282/ords/cpa_invst/banks/worklist"
+LOGIN_API_URL = "http://103.163.96.251:8282/ords/cpa_invst/banks/login"
+SESSION_COOKIE_NAME = "fdr_session"
+SESSION_TTL_SECONDS = 60 * 60 * 12
 
 RUN_STATES = {
     "extraction": {
@@ -62,6 +66,8 @@ RUN_STATE_LOCK = threading.Lock()
 LAST_EXTRACTION_LOCK = threading.Lock()
 LAST_EXTRACTION_RECORDS = {}
 LAST_EXTRACTION_ORDER = []
+SESSION_LOCK = threading.Lock()
+SESSIONS = {}
 
 
 def _acquire_run_slot(run_type):
@@ -217,6 +223,88 @@ def _terminate_process(proc):
                     proc.kill()
     except Exception:
         pass
+
+
+def _parse_cookie_header(cookie_header):
+    cookies = {}
+    raw = str(cookie_header or "")
+    if not raw:
+        return cookies
+    for pair in raw.split(";"):
+        if "=" not in pair:
+            continue
+        key, value = pair.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if key:
+            cookies[key] = value
+    return cookies
+
+
+def _prune_expired_sessions():
+    now = time.time()
+    expired = []
+    for token, meta in SESSIONS.items():
+        if (meta or {}).get("expires_at", 0) <= now:
+            expired.append(token)
+    for token in expired:
+        SESSIONS.pop(token, None)
+
+
+def _create_session(username):
+    token = secrets.token_urlsafe(32)
+    expires_at = time.time() + SESSION_TTL_SECONDS
+    with SESSION_LOCK:
+        _prune_expired_sessions()
+        SESSIONS[token] = {
+            "username": str(username).strip(),
+            "expires_at": expires_at,
+        }
+    return token
+
+
+def _delete_session(token):
+    if not token:
+        return
+    with SESSION_LOCK:
+        SESSIONS.pop(token, None)
+
+
+def _session_username_from_token(token):
+    if not token:
+        return None
+    with SESSION_LOCK:
+        _prune_expired_sessions()
+        entry = SESSIONS.get(token)
+        if not entry:
+            return None
+        return entry.get("username")
+
+
+def authenticate_apex_user(username, password):
+    payload = json.dumps(
+        {"username": str(username or "").strip(), "password": str(password or "")}
+    ).encode("utf-8")
+    req = Request(
+        LOGIN_API_URL,
+        data=payload,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    with urlopen(req, timeout=30) as resp:
+        status_code = getattr(resp, "status", 200) or 200
+        raw = resp.read().decode("utf-8", errors="replace")
+    try:
+        body = json.loads(raw) if raw else {}
+    except Exception:
+        body = {}
+    ok = status_code == 200 and str(body.get("status", "")).lower() == "success"
+    return {
+        "ok": ok,
+        "status_code": status_code,
+        "body": body,
+        "raw": raw,
+    }
 
 # --- Field name normalization map ---
 FIELD_MAP = {
@@ -900,6 +988,41 @@ def eligibility_files_since(since):
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
+    def _cookie(self, name):
+        cookies = _parse_cookie_header(self.headers.get("Cookie"))
+        return cookies.get(name)
+
+    def _session_user(self):
+        token = self._cookie(SESSION_COOKIE_NAME)
+        return _session_username_from_token(token)
+
+    def _send_json(self, status_code, payload, extra_headers=None):
+        data = json.dumps(payload).encode("utf-8")
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json")
+        if extra_headers:
+            for key, value in extra_headers.items():
+                self.send_header(str(key), str(value))
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _redirect(self, location):
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _require_auth(self, path):
+        user = self._session_user()
+        if user:
+            return user
+        if path.startswith("/api/"):
+            self._send_json(401, {"ok": False, "error": "Unauthorized"})
+            return None
+        self._redirect("/login")
+        return None
+
     def do_GET(self):
         parsed = urlparse(self.path)
         raw_path = parsed.path or "/"
@@ -909,6 +1032,25 @@ class Handler(BaseHTTPRequestHandler):
         path_parts = [part for part in path.split("/") if part]
         tail = "/".join(path_parts[-2:]) if len(path_parts) >= 2 else (path_parts[0] if path_parts else "")
         query = parse_qs(parsed.query)
+        if path == "/login":
+            if self._session_user():
+                return self._redirect("/")
+            return self.handle_static("/login.html")
+        # Public assets required by the login screen before authentication.
+        # Keep this narrow to static assets only.
+        if (
+            path in {"/favicon.ico", "/styles.css", "/login.html"}
+            or path.startswith("/images/")
+            or path.startswith("/fonts/")
+        ):
+            return self.handle_static(path)
+        if path in {"/api/auth-status", "/auth-status"}:
+            user = self._session_user()
+            return self._send_json(200, {"authenticated": bool(user), "username": user})
+
+        if self._require_auth(path) is None:
+            return
+
         if path in {"/api/scorecards", "/scorecards"}:
             return self.handle_scorecards()
         if path in {"/api/eligibility-scorecards", "/eligibility-scorecards"}:
@@ -929,6 +1071,59 @@ class Handler(BaseHTTPRequestHandler):
         if tail in {"api/stop-run", "stop-run"}:
             return self.handle_stop_run(query)
         return self.handle_static(path)
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        path = (parsed.path or "/").rstrip("/") or "/"
+        if not path.startswith("/"):
+            path = f"/{path}"
+
+        if path in {"/api/login", "/login"}:
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            raw = self.rfile.read(length) if length > 0 else b"{}"
+            try:
+                payload = json.loads(raw.decode("utf-8", errors="replace"))
+            except Exception:
+                payload = {}
+            username = str(payload.get("username") or "").strip()
+            password = str(payload.get("password") or "")
+            remember = bool(payload.get("remember"))
+            if not username or not password:
+                return self._send_json(
+                    400, {"ok": False, "error": "Username and password are required."}
+                )
+            try:
+                result = authenticate_apex_user(username, password)
+            except Exception as exc:
+                return self._send_json(
+                    502, {"ok": False, "error": f"Login API unavailable: {exc}"}
+                )
+            if not result.get("ok"):
+                body = result.get("body") or {}
+                message = body.get("message") or "Invalid username or password."
+                return self._send_json(401, {"ok": False, "error": str(message)})
+            token = _create_session(username)
+            if remember:
+                cookie = (
+                    f"{SESSION_COOKIE_NAME}={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={SESSION_TTL_SECONDS}"
+                )
+            else:
+                # Session cookie: cleared when browser session ends.
+                cookie = f"{SESSION_COOKIE_NAME}={token}; Path=/; HttpOnly; SameSite=Lax"
+            headers = {"Set-Cookie": cookie}
+            return self._send_json(200, {"ok": True, "username": username}, headers)
+
+        if path in {"/api/logout", "/logout"}:
+            token = self._cookie(SESSION_COOKIE_NAME)
+            _delete_session(token)
+            headers = {
+                "Set-Cookie": f"{SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+            }
+            return self._send_json(200, {"ok": True}, headers)
+
+        if self._require_auth(path) is None:
+            return
+        return self._send_json(404, {"ok": False, "error": "Not found"})
 
     def handle_scorecards(self):
         cards = _snapshot_last_extraction_scorecards()

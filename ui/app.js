@@ -4,6 +4,7 @@ const runBtn = document.getElementById("runBtn");
 const runBtnHero = document.getElementById("runBtnHero");
 const runAgainBtn = document.getElementById("runAgainBtn");
 const eligibilityBtn = document.getElementById("eligibilityBtn");
+const logoutBtn = document.getElementById("logoutBtn");
 const stopRunBtn = document.getElementById("stopRunBtn");
 const annualYearChip = document.getElementById("annualYearChip");
 const viewScorecardBtn = document.getElementById("viewScorecard");
@@ -27,6 +28,8 @@ const confirmCancelBtn = document.getElementById("confirmCancelBtn");
 const confidenceRing = document.getElementById("confidenceRing");
 const healthValue = document.getElementById("healthValue");
 const selectedBankChip = document.getElementById("selectedBankChip");
+const selectedFinalBankNameEl = document.getElementById("selectedFinalBankName");
+const selectedEligibilityBankNameEl = document.getElementById("selectedEligibilityBankName");
 const totalScoreEl = document.getElementById("totalScore");
 const scoreTierEl = document.getElementById("scoreTier");
 const scoreFlagsEl = document.getElementById("scoreFlags");
@@ -270,6 +273,7 @@ const defaultButtonLabels = new Map(
 const RUN_STATUS_STORAGE_KEY = "fdr-investments.runStatus.v1";
 const RUN_STATUS_ENDPOINTS = ["/api/run-status", "api/run-status", "/run-status", "run-status"];
 const RUN_UI_STORAGE_KEY = "fdr-investments.runUi.v1";
+const AUTH_PREFS_KEY = "fdr-auth-prefs.v1";
 
 // --- App state ---
 const state = {
@@ -280,6 +284,8 @@ const state = {
   eligibilityOrder: [],
   activeEligibilityKey: null,
   eligibilityMaxScore,
+  hasPickedFinalBank: false,
+  hasPickedEligibilityBank: false,
   outputMode: "extraction",
   totalBanks: 0,
   runSource: null,
@@ -327,6 +333,57 @@ const runConfigs = {
 };
 
 let confirmResolver = null;
+
+// --- Login preference helpers ---
+const readAuthPrefs = () => {
+  try {
+    const raw = localStorage.getItem(AUTH_PREFS_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return parsed;
+  } catch (_error) {
+    return null;
+  }
+};
+
+const shouldRememberSession = () => {
+  const prefs = readAuthPrefs();
+  return Boolean(prefs && prefs.remember);
+};
+
+const currentNavigationType = () => {
+  try {
+    const [entry] = performance.getEntriesByType("navigation");
+    if (entry && entry.type) {
+      return entry.type;
+    }
+  } catch (_error) {
+    return "";
+  }
+  return "";
+};
+
+const enforceFreshLoginOnReload = async () => {
+  // If "remember" is not selected, a browser refresh should return to login.
+  if (shouldRememberSession()) {
+    return false;
+  }
+  if (currentNavigationType() !== "reload") {
+    return false;
+  }
+  try {
+    await fetch("/api/logout", { method: "POST", keepalive: true });
+  } catch (_error) {
+    // Ignore network errors and still redirect to login.
+  }
+  window.location.replace("/login");
+  return true;
+};
 
 // --- Time and log utilities ---
 const pad = (num) => String(num).padStart(2, "0");
@@ -392,6 +449,16 @@ const clearRunUiSnapshot = () => {
     localStorage.removeItem(RUN_UI_STORAGE_KEY);
   } catch (error) {
     return;
+  }
+};
+
+const logoutUser = async () => {
+  try {
+    await fetch("/api/logout", { method: "POST", keepalive: true });
+  } catch (_error) {
+    // Redirect even when API fails, so user is moved to login screen.
+  } finally {
+    window.location.replace("/login");
   }
 };
 
@@ -1135,6 +1202,9 @@ const updateActiveBank = (bankKey) => {
   if (state.outputMode === "extraction" && selectedBankChip) {
     selectedBankChip.textContent = bank.name;
   }
+  if (selectedFinalBankNameEl) {
+    selectedFinalBankNameEl.textContent = state.hasPickedFinalBank ? bank.name || "" : "";
+  }
   runBankName.textContent = bank.name;
 
   const totalScore = getTotalScore(bank);
@@ -1167,6 +1237,10 @@ const resetExtractionView = (message = "No extraction data yet.") => {
   if (selectedBankChip) {
     selectedBankChip.textContent = "No bank selected";
   }
+  if (selectedFinalBankNameEl) {
+    selectedFinalBankNameEl.textContent = "";
+  }
+  state.hasPickedFinalBank = false;
   if (totalScoreEl) {
     totalScoreEl.textContent = "0";
   }
@@ -1202,6 +1276,9 @@ const updateActiveEligibilityBank = (bankKey) => {
 
   if (state.outputMode === "eligibility" && selectedBankChip) {
     selectedBankChip.textContent = bank.name;
+  }
+  if (selectedEligibilityBankNameEl) {
+    selectedEligibilityBankNameEl.textContent = state.hasPickedEligibilityBank ? bank.name || "" : "";
   }
   runBankName.textContent = bank.name;
 
@@ -1876,6 +1953,10 @@ if (eligibilityBtn) {
   eligibilityBtn.addEventListener("click", startEligibilityRun);
 }
 
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", logoutUser);
+}
+
 if (stopRunBtn) {
   stopRunBtn.addEventListener("click", stopRunProcesses);
 }
@@ -1914,6 +1995,7 @@ if (bankTabs) {
     if (!button) {
       return;
     }
+    state.hasPickedFinalBank = true;
     updateActiveBank(button.dataset.bank);
   });
 }
@@ -1924,6 +2006,7 @@ if (eligibilityTabs) {
     if (!button) {
       return;
     }
+    state.hasPickedEligibilityBank = true;
     updateActiveEligibilityBank(button.dataset.bank);
   });
 }
@@ -1935,8 +2018,10 @@ if (scoreList) {
       return;
     }
     if (state.outputMode === "eligibility") {
+      state.hasPickedEligibilityBank = true;
       updateActiveEligibilityBank(item.dataset.bank);
     } else {
+      state.hasPickedFinalBank = true;
       updateActiveBank(item.dataset.bank);
     }
   });
@@ -1950,8 +2035,10 @@ if (scoreList) {
     }
     event.preventDefault();
     if (state.outputMode === "eligibility") {
+      state.hasPickedEligibilityBank = true;
       updateActiveEligibilityBank(item.dataset.bank);
     } else {
+      state.hasPickedFinalBank = true;
       updateActiveBank(item.dataset.bank);
     }
   });
@@ -2111,35 +2198,40 @@ if (glows.length) {
 
 // --- Initial boot ---
 window.addEventListener("load", () => {
-  document.body.classList.add("loaded");
-  const uiSnapshot = loadRunUiSnapshot();
-  if (uiSnapshot && uiSnapshot.running) {
-    state.running = true;
-    state.currentRunType = uiSnapshot.currentRunType || "extraction";
-    setButtonsDisabled(true);
-    statusLabel.textContent = uiSnapshot.statusLabel || "Running";
-    if (runBankName && uiSnapshot.runBank) {
-      runBankName.textContent = uiSnapshot.runBank;
+  enforceFreshLoginOnReload().then((redirecting) => {
+    if (redirecting) {
+      return;
     }
-    if (progressHint) {
-      progressHint.textContent = uiSnapshot.progressHint || "Resuming previous run state...";
+    document.body.classList.add("loaded");
+    const uiSnapshot = loadRunUiSnapshot();
+    if (uiSnapshot && uiSnapshot.running) {
+      state.running = true;
+      state.currentRunType = uiSnapshot.currentRunType || "extraction";
+      setButtonsDisabled(true);
+      statusLabel.textContent = uiSnapshot.statusLabel || "Running";
+      if (runBankName && uiSnapshot.runBank) {
+        runBankName.textContent = uiSnapshot.runBank;
+      }
+      if (progressHint) {
+        progressHint.textContent = uiSnapshot.progressHint || "Resuming previous run state...";
+      }
+      const progressMatch = String(uiSnapshot.progressText || "").match(/(\d+)/);
+      const restoredProgress = progressMatch ? Number(progressMatch[1]) : 0;
+      setProgress(Number.isFinite(restoredProgress) ? restoredProgress : 0);
+      showOverlay();
     }
-    const progressMatch = String(uiSnapshot.progressText || "").match(/(\d+)/);
-    const restoredProgress = progressMatch ? Number(progressMatch[1]) : 0;
-    setProgress(Number.isFinite(restoredProgress) ? restoredProgress : 0);
-    showOverlay();
-  }
-  const snapshot = loadRunStatusSnapshot();
-  if (snapshot && snapshot.runs) {
-    applyRunStatus(snapshot.runs, true);
-  }
-  loadRunStatus(true);
-  startRunStatusPolling();
-  loadSources();
-  loadScorecards();
-  loadEligibilityScorecards();
-  scheduleOutputPanelHeight();
-  syncOverlayToggle();
+    const snapshot = loadRunStatusSnapshot();
+    if (snapshot && snapshot.runs) {
+      applyRunStatus(snapshot.runs, true);
+    }
+    loadRunStatus(true);
+    startRunStatusPolling();
+    loadSources();
+    loadScorecards();
+    loadEligibilityScorecards();
+    scheduleOutputPanelHeight();
+    syncOverlayToggle();
+  });
 });
 
 window.addEventListener("resize", () => {

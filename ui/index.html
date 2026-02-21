@@ -40,6 +40,7 @@
         <span class="year-label" id="annualYearChip">Year --</span>
         <button class="ghost" id="eligibilityBtn">Eligibility scan</button>
         <button class="primary" id="runBtn">Run extraction</button>
+        <button class="ghost danger" id="logoutBtn" type="button">Logout</button>
       </div>
     </header>
 
@@ -158,6 +159,11 @@
               <div class="bank-tabs" id="bankTabs"></div>
               <div class="score-summary">
                 <div class="summary-card">
+                  <p class="summary-label">Bank name</p>
+                  <p class="summary-value" id="selectedFinalBankName"></p>
+                  <p class="summary-sub">Selected in final score</p>
+                </div>
+                <div class="summary-card">
                   <p class="summary-label">Total score</p>
                   <p class="summary-value" id="totalScore">0</p>
                   <p class="summary-sub">Out of 100</p>
@@ -187,6 +193,11 @@
             <div class="output-panel" data-mode="eligibility">
               <div class="bank-tabs" id="eligibilityTabs"></div>
               <div class="score-summary">
+                <div class="summary-card">
+                  <p class="summary-label">Bank name</p>
+                  <p class="summary-value" id="selectedEligibilityBankName"></p>
+                  <p class="summary-sub">Selected in eligibility scan</p>
+                </div>
                 <div class="summary-card">
                   <p class="summary-label">Eligibility score</p>
                   <p class="summary-value" id="eligibilityScore">--</p>

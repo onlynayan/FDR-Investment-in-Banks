@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | FDR Investment in Banks</title>
+  <style>
+    :root {
+      --bg: #050912;
+      --panel: rgba(11, 18, 31, 0.72);
+      --line: rgba(255, 255, 255, 0.14);
+      --text: #e8f0fb;
+      --muted: #8fa5c4;
+      --accent: #2ed9b8;
+      --accent-2: #6fd2ff;
+      --danger: #ff7c8b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 12%, rgba(46, 217, 184, 0.2), transparent 45%),
+        radial-gradient(circle at 80% 18%, rgba(111, 210, 255, 0.18), transparent 42%),
+        radial-gradient(circle at 75% 85%, rgba(46, 217, 184, 0.16), transparent 40%),
+        linear-gradient(140deg, #04070d, #060b15 52%, #03060c);
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      overflow: hidden;
+    }
+    .grid {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 72px 72px;
+      opacity: 0.2;
+      pointer-events: none;
+    }
+    .card {
+      width: min(460px, 100%);
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(145deg, rgba(15, 26, 42, 0.82), rgba(9, 15, 26, 0.72));
+      box-shadow:
+        0 35px 65px rgba(2, 6, 14, 0.62),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+      padding: 24px;
+      position: relative;
+      z-index: 1;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .brand img {
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+    }
+    .brand p {
+      margin: 0;
+      letter-spacing: 0.6px;
+      font-size: 12px;
+      color: #dce8fb;
+      text-transform: uppercase;
+    }
+    .eyebrow {
+      margin: 6px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 1.3px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      line-height: 1.08;
+      letter-spacing: 0.4px;
+    }
+    .sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    label {
+      display: block;
+      margin: 12px 0 6px;
+      color: #c8d8ef;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    input {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      background: rgba(7, 12, 22, 0.9);
+      color: var(--text);
+      padding: 12px 13px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    input:focus {
+      border-color: rgba(46, 217, 184, 0.6);
+      box-shadow: 0 0 0 3px rgba(46, 217, 184, 0.16);
+    }
+    .actions {
+      margin-top: 16px;
+      display: flex;
+    }
+    .remember {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: #c8d8ef;
+      font-size: 13px;
+      user-select: none;
+    }
+    .remember input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #2ed9b8;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .remember span {
+      line-height: 1.2;
+    }
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 18px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #03231d;
+      box-shadow: 0 12px 24px rgba(46, 217, 184, 0.25);
+      min-width: 120px;
+    }
+    button[disabled] {
+      opacity: 0.72;
+      cursor: not-allowed;
+    }
+    .msg {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      min-height: 18px;
+    }
+    .msg.error { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="grid" aria-hidden="true"></div>
+  <div class="card">
+    <div class="brand">
+      <img src="images/chittagong-port-authority-logo.png" alt="CPA logo" />
+      <p>FDR Investment in Banks</p>
+    </div>
+    <p class="eyebrow">Secure Access</p>
+    <h1>Login</h1>
+    <p class="sub">Sign in with your APEX credentials to access the dashboard.</p>
+    <form id="loginForm">
+      <label for="username">Username</label>
+      <input id="username" name="username" type="text" autocomplete="username" required />
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required />
+      <label class="remember" for="rememberChoice">
+        <input id="rememberChoice" name="rememberChoice" type="checkbox" />
+        <span>Remember my choice</span>
+      </label>
+      <div class="actions">
+        <button id="loginBtn" type="submit">Login</button>
+      </div>
+      <p id="loginMsg" class="msg"></p>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById("loginForm");
+    const button = document.getElementById("loginBtn");
+    const msg = document.getElementById("loginMsg");
+    const rememberChoice = document.getElementById("rememberChoice");
+    const usernameInput = document.getElementById("username");
+    const passwordInput = document.getElementById("password");
+    const AUTH_PREFS_KEY = "fdr-auth-prefs.v1";
+
+    const setMessage = (text, isError = false) => {
+      msg.textContent = text || "";
+      msg.classList.toggle("error", Boolean(isError));
+    };
+
+    const readPrefs = () => {
+      try {
+        const raw = localStorage.getItem(AUTH_PREFS_KEY);
+        if (!raw) {
+          return null;
+        }
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : null;
+      } catch (_error) {
+        return null;
+      }
+    };
+
+    const writePrefs = (prefs) => {
+      try {
+        localStorage.setItem(AUTH_PREFS_KEY, JSON.stringify(prefs || {}));
+      } catch (_error) {
+        return;
+      }
+    };
+
+    const clearPrefs = () => {
+      try {
+        localStorage.removeItem(AUTH_PREFS_KEY);
+      } catch (_error) {
+        return;
+      }
+    };
+
+    const initialPrefs = readPrefs();
+    if (initialPrefs && initialPrefs.remember) {
+      rememberChoice.checked = true;
+      usernameInput.value = String(initialPrefs.username || "");
+      passwordInput.value = String(initialPrefs.password || "");
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+      const remember = Boolean(rememberChoice && rememberChoice.checked);
+      setMessage("");
+      button.disabled = true;
+      button.textContent = "Checking...";
+      try {
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password, remember }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) {
+          setMessage(data.error || "Login failed. Please check credentials.", true);
+          return;
+        }
+        if (remember) {
+          writePrefs({ remember: true, username, password });
+        } else {
+          clearPrefs();
+        }
+        window.location.href = "/";
+      } catch (_error) {
+        setMessage("Login service unavailable. Please try again.", true);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Login";
+      }
+    });
+  </script>
+</body>
+</html>

@@ -2092,6 +2092,12 @@ body.loaded .reveal {
     text-align: center;
   }
 
+  #logoutBtn {
+    width: 100%;
+    text-align: center;
+    grid-column: 1 / -1;
+  }
+
   .brand-logos img {
     width: 46px;
     height: 46px;
