@@ -272,14 +272,38 @@ def build_eligible_pdf_url(bank_name, year):
     return None
 
 
-def build_pdf_viewer_url(file_url, page=None, value=None):
+def _prepare_pdf_search_value(value, prefer_percent=False):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    # Rating tokens like A/AA/B/BB are too ambiguous for exact PDF text highlighting.
+    if re.fullmatch(r"[A-Za-z]{1,2}", text):
+        return None
+    # For ratio fields, prefer exact percentage token to avoid partial numeric matches.
+    if prefer_percent and re.fullmatch(r"\d+(?:\.\d+)?", text):
+        return f"{text}%"
+    return text
+
+
+PERCENT_SEARCH_KEYS = {"crar", "leverage", "npl", "provision", "ldr", "roa", "roe", "nim", "lcr", "nsfr", "cdr"}
+
+
+def build_pdf_viewer_url(file_url, page=None, value=None, prefer_percent=False):
     if not file_url:
         return None
     fragment_parts = []
     if page not in ("", None):
         fragment_parts.append(f"page={page}")
-    if value not in ("", None):
-        fragment_parts.append(f"search={quote(str(value))}")
+        fragment_parts.append("focus=1")
+    query = _prepare_pdf_search_value(value, prefer_percent=prefer_percent)
+    if query:
+        fragment_parts.append(f"search={quote(query)}")
+        # Viewer patch uses these flags to run exact, focused search behavior.
+        fragment_parts.append("phrase=true")
+        fragment_parts.append("exact=1")
+        fragment_parts.append("pageonly=1")
+    elif value not in ("", None):
+        fragment_parts.append("searchskipped=ambiguous")
     fragment = "&".join(fragment_parts)
     viewer_url = f"/pdfjs/web/viewer.html?file={quote(str(file_url))}"
     if fragment:
@@ -298,7 +322,7 @@ def build_eligibility_record(payload):
         if rel:
             file_url = f"/{rel}"
     npl_source = build_pdf_viewer_url(
-        file_url, page=payload.get("nplPage"), value=payload.get("npl")
+        file_url, page=payload.get("nplPage"), value=payload.get("npl"), prefer_percent=True
     )
     rating_source = build_pdf_viewer_url(
         file_url, page=payload.get("ratingPage"), value=payload.get("rating")
@@ -551,7 +575,9 @@ def load_developer_links():
                 file_url = local_pdf_url
             elif source_url and "<" not in str(source_url):
                 file_url = source_url
-            viewer_url = build_pdf_viewer_url(file_url, page=page, value=value)
+            viewer_url = build_pdf_viewer_url(
+                file_url, page=page, value=value, prefer_percent=(key in PERCENT_SEARCH_KEYS)
+            )
 
             bank_links = links.setdefault(bank_key, {})
             existing = bank_links.get(key)
@@ -799,7 +825,7 @@ def build_eligibility_scorecards():
                 "value": npl_value,
                 "score": clean_number(npl_score),
                 "page": npl_page,
-                "sourceUrl": build_pdf_viewer_url(local_pdf_url, page=npl_page, value=npl_value),
+                "sourceUrl": build_pdf_viewer_url(local_pdf_url, page=npl_page, value=npl_value, prefer_percent=True),
             }
 
             pcr_value = clean_number(row.get(pcr_col)) if pcr_col else None
@@ -809,7 +835,7 @@ def build_eligibility_scorecards():
                 "value": pcr_value,
                 "score": clean_number(pcr_score),
                 "page": pcr_page,
-                "sourceUrl": build_pdf_viewer_url(local_pdf_url, page=pcr_page, value=pcr_value),
+                "sourceUrl": build_pdf_viewer_url(local_pdf_url, page=pcr_page, value=pcr_value, prefer_percent=True),
             }
 
             rating_value = clean_cell(row.get(rating_col)) if rating_col else None
