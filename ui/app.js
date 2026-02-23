@@ -301,6 +301,7 @@ const state = {
   statusFetchErrorLogged: false,
   sourceTotalBanks: 0,
   sourceEligibleBanks: 0,
+  sourceBankNames: [],
 };
 
 const runConfigs = {
@@ -840,9 +841,15 @@ const updateTierCounts = () => {
 };
 
 const updateBankCounts = () => {
+  const totalFromSource =
+    state.sourceTotalBanks ||
+    state.totalBanks ||
+    state.runBankOrder.length ||
+    state.bankOrder.length ||
+    state.eligibilityOrder.length ||
+    0;
   if (totalBankCountEl) {
-    const total = state.sourceTotalBanks || state.totalBanks || state.runBankOrder.length || state.bankOrder.length || 0;
-    totalBankCountEl.textContent = total;
+    totalBankCountEl.textContent = totalFromSource;
   }
   if (eligibleBankCountEl) {
     const eligible = state.sourceEligibleBanks || state.runBankOrder.length || state.bankOrder.length || 0;
@@ -1783,6 +1790,7 @@ const setEligibilityBanks = (banks) => {
     state.eligibilityBanks[bank.key] = bank;
     state.eligibilityOrder.push(bank.key);
   });
+  ensureEligibilityCoverageFromSources();
   if (!state.activeEligibilityKey && state.eligibilityOrder.length) {
     state.activeEligibilityKey = state.eligibilityOrder[0];
   }
@@ -1791,7 +1799,63 @@ const setEligibilityBanks = (banks) => {
   } else {
     renderEligibilityTabs();
   }
+  updateBankCounts();
   scheduleOutputPanelHeight();
+};
+
+const ensureEligibilityCoverageFromSources = () => {
+  if (!Array.isArray(state.sourceBankNames) || !state.sourceBankNames.length) {
+    return;
+  }
+  let changed = false;
+  state.sourceBankNames.forEach((name) => {
+    if (!name) {
+      return;
+    }
+    const key = slugify(name);
+    if (!state.eligibilityBanks[key]) {
+      state.eligibilityBanks[key] = {
+        key,
+        name,
+        totalScore: 0,
+        indicators: {
+          npl: { value: null, score: null, page: null, sourceUrl: null },
+          provision: { value: null, score: null, page: null, sourceUrl: null },
+          creditRating: { value: null, score: null, page: null, sourceUrl: null },
+        },
+      };
+      changed = true;
+      return;
+    }
+    if (!state.eligibilityBanks[key].name) {
+      state.eligibilityBanks[key].name = name;
+      changed = true;
+    }
+  });
+
+  const ordered = [];
+  state.sourceBankNames.forEach((name) => {
+    const key = slugify(name);
+    if (state.eligibilityBanks[key] && !ordered.includes(key)) {
+      ordered.push(key);
+    }
+  });
+  state.eligibilityOrder.forEach((key) => {
+    if (state.eligibilityBanks[key] && !ordered.includes(key)) {
+      ordered.push(key);
+    }
+  });
+
+  if (
+    changed ||
+    ordered.length !== state.eligibilityOrder.length ||
+    ordered.some((key, index) => state.eligibilityOrder[index] !== key)
+  ) {
+    state.eligibilityOrder = ordered;
+  }
+  if (!state.activeEligibilityKey || !state.eligibilityBanks[state.activeEligibilityKey]) {
+    state.activeEligibilityKey = state.eligibilityOrder[0] || null;
+  }
 };
 
 const applyEligibilityRecord = (record) => {
@@ -1863,6 +1927,9 @@ const loadSources = async () => {
     const eligibleSources = Array.isArray(data.eligible_sources) ? data.eligible_sources : [];
     state.sourceTotalBanks = allSources.length;
     state.sourceEligibleBanks = eligibleSources.length;
+    state.sourceBankNames = allSources
+      .map((entry) => (entry && entry.bank ? String(entry.bank).trim() : ""))
+      .filter(Boolean);
     const sourceForYear = eligibleSources.length ? eligibleSources : allSources;
     const years = Array.from(
       new Set(
@@ -1884,6 +1951,15 @@ const loadSources = async () => {
       setRunBankOrder(eligibleSources.map((entry) => entry.bank));
     } else if (allSources.length) {
       setRunBankOrder(allSources.map((entry) => entry.bank));
+    }
+    ensureEligibilityCoverageFromSources();
+    if (state.outputMode === "eligibility") {
+      if (state.activeEligibilityKey) {
+        updateActiveEligibilityBank(state.activeEligibilityKey);
+      } else {
+        renderEligibilityTabs();
+        renderEligibilityComparison(null);
+      }
     }
     updateBankCounts();
   } catch (error) {
@@ -2122,6 +2198,7 @@ function setOutputMode(mode) {
       resetExtractionView("No final-score output yet.");
     }
   }
+  updateBankCounts();
   scheduleOutputPanelHeight();
 }
 
