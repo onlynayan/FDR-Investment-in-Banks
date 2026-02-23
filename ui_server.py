@@ -19,6 +19,18 @@ from pathlib import Path
 # --- Third-party and local imports ---
 import pandas as pd
 from apex_client import send_bank_eligibility
+try:
+    from sync_sources_from_api import (
+        fetch_all_sources as sync_fetch_all_sources,
+        load_sources as sync_load_sources,
+        merge_sources as sync_merge_sources,
+        save_sources as sync_save_sources,
+    )
+except Exception:
+    sync_fetch_all_sources = None
+    sync_load_sources = None
+    sync_merge_sources = None
+    sync_save_sources = None
 
 try:
     from scraper import score_field_value
@@ -68,6 +80,7 @@ LAST_EXTRACTION_RECORDS = {}
 LAST_EXTRACTION_ORDER = []
 SESSION_LOCK = threading.Lock()
 SESSIONS = {}
+SOURCES_SYNC_TIMEOUT_SECONDS = 30
 
 
 def _acquire_run_slot(run_type):
@@ -208,6 +221,35 @@ def _snapshot_run_states():
                 ],
             }
         return payload
+
+
+def _sync_sources_from_api():
+    if not all((sync_fetch_all_sources, sync_load_sources, sync_merge_sources, sync_save_sources)):
+        return {
+            "ok": False,
+            "error": "sync_sources_from_api module is unavailable.",
+        }
+    try:
+        existing = sync_load_sources(SOURCES_PATH)
+        incoming = sync_fetch_all_sources(
+            "http://103.163.96.251:8282/ords/cpa_invst/banks/sources",
+            timeout=SOURCES_SYNC_TIMEOUT_SECONDS,
+        )
+        merged, inserted = sync_merge_sources(existing, incoming)
+        if inserted > 0:
+            sync_save_sources(SOURCES_PATH, merged)
+        return {
+            "ok": True,
+            "fetched": len(incoming),
+            "existing": len(existing),
+            "inserted": inserted,
+            "final": len(merged),
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": str(exc),
+        }
 
 
 def _terminate_process(proc):
@@ -1059,16 +1101,16 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_sources()
         if path in {"/api/run", "/run"}:
             return self.handle_run()
-        if path in {"/api/eligibility-run", "/eligibility-run"}:
+        if path in {"/api/eligibility-run", "/eligibility-run", "/api/eligibility/run", "/eligibility/run"}:
             return self.handle_eligibility_run()
-        if path in {"/api/stop-run", "/stop-run"}:
+        if path in {"/api/stop-run", "/stop-run", "/api/stop/run", "/stop/run"}:
             return self.handle_stop_run(query)
-        if path in {"/api/run-status", "/run-status"}:
+        if path in {"/api/run-status", "/run-status", "/api/run/status", "/run/status"}:
             return self.handle_run_status()
         # Support reverse-proxy path prefixes (e.g. /fdr/api/run-status).
-        if tail in {"api/run-status", "run-status"}:
+        if tail in {"api/run-status", "run-status", "run/status"}:
             return self.handle_run_status()
-        if tail in {"api/stop-run", "stop-run"}:
+        if tail in {"api/stop-run", "stop-run", "stop/run"}:
             return self.handle_stop_run(query)
         return self.handle_static(path)
 
@@ -1256,6 +1298,29 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Connection", "keep-alive")
             self.end_headers()
+            sync_result = _sync_sources_from_api()
+            if sync_result.get("ok"):
+                client_connected = self.send_event(
+                    {
+                        "type": "log",
+                        "line": (
+                            "Sources sync completed: "
+                            f"fetched={sync_result.get('fetched', 0)} "
+                            f"inserted={sync_result.get('inserted', 0)} "
+                            f"total={sync_result.get('final', 0)}"
+                        ),
+                    }
+                )
+            else:
+                client_connected = self.send_event(
+                    {
+                        "type": "log",
+                        "line": (
+                            "Sources sync failed, continuing with existing config/sources.json: "
+                            f"{sync_result.get('error', 'unknown error')}"
+                        ),
+                    }
+                )
             env = dict(os.environ)
             env["PYTHONUNBUFFERED"] = "1"
             cmd = [sys.executable, "-u"]
