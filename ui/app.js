@@ -1,12 +1,26 @@
 // Developed by Nayan
 // --- DOM references ---
 const runBtn = document.getElementById("runBtn");
-const runBtnHero = document.getElementById("runBtnHero");
 const runAgainBtn = document.getElementById("runAgainBtn");
 const eligibilityBtn = document.getElementById("eligibilityBtn");
+const runSelectedEligibilityBtn = document.getElementById("runSelectedEligibilityBtn");
+const runSelectedFinalBtn = document.getElementById("runSelectedFinalBtn");
+const selectedEligibilityPicker = document.getElementById("selectedEligibilityPicker");
+const selectedFinalPicker = document.getElementById("selectedFinalPicker");
+const selectedEligibilityMenu = document.getElementById("selectedEligibilityMenu");
+const selectedFinalMenu = document.getElementById("selectedFinalMenu");
+const selectedEligibilityLabel = document.getElementById("selectedEligibilityLabel");
+const selectedFinalLabel = document.getElementById("selectedFinalLabel");
 const logoutBtn = document.getElementById("logoutBtn");
 const stopRunBtn = document.getElementById("stopRunBtn");
-const annualYearChip = document.getElementById("annualYearChip");
+const yearPicker = document.getElementById("yearPicker");
+const annualYearTrigger = document.getElementById("annualYearTrigger");
+const annualYearMenu = document.getElementById("annualYearMenu");
+const annualYearValue = document.getElementById("annualYearValue");
+const notifyPicker = document.getElementById("notifyPicker");
+const notifyTrigger = document.getElementById("notifyTrigger");
+const notifyMenu = document.getElementById("notifyMenu");
+const notifyBadge = document.getElementById("notifyBadge");
 const viewScorecardBtn = document.getElementById("viewScorecard");
 const scoreSection = document.getElementById("scoreSection");
 const overlay = document.getElementById("overlay");
@@ -259,14 +273,21 @@ const percentKeys = new Set([
 ]);
 
 // --- Shared button list ---
-const runButtons = [runBtn, runBtnHero, runAgainBtn].filter(Boolean);
-const controlButtons = [runBtn, runBtnHero, runAgainBtn, eligibilityBtn].filter(Boolean);
+const runButtons = [runBtn, runAgainBtn].filter(Boolean);
+const controlButtons = [
+  runBtn,
+  runAgainBtn,
+  eligibilityBtn,
+  runSelectedEligibilityBtn,
+  runSelectedFinalBtn,
+].filter(Boolean);
 const defaultButtonLabels = new Map(
   [
     [runBtn, "Run extraction"],
-    [runBtnHero, "Run now"],
     [runAgainBtn, "Run again"],
     [eligibilityBtn, "Eligibility scan"],
+    [runSelectedEligibilityBtn, "Run Selected Eligibility"],
+    [runSelectedFinalBtn, "Run Selected Final"],
     [stopRunBtn, "Close process"],
   ].filter(([button]) => Boolean(button))
 );
@@ -274,6 +295,40 @@ const RUN_STATUS_STORAGE_KEY = "fdr-investments.runStatus.v1";
 const RUN_STATUS_ENDPOINTS = ["/api/run-status", "api/run-status", "/run-status", "run-status"];
 const RUN_UI_STORAGE_KEY = "fdr-investments.runUi.v1";
 const AUTH_PREFS_KEY = "fdr-auth-prefs.v1";
+const YEAR_PREFS_KEY = "fdr-selected-year.v1";
+const NOTIFY_READ_TS_KEY = "fdr-run-notifications.readTs.v1";
+const currentYear = new Date().getFullYear();
+const MIN_YEAR_OPTION = currentYear - 2;
+const MAX_YEAR_OPTION = currentYear + 1;
+
+const readStoredYear = () => {
+  try {
+    const raw = localStorage.getItem(YEAR_PREFS_KEY);
+    const year = Number(raw);
+    if (!Number.isFinite(year) || year <= 0) {
+      return null;
+    }
+    return year;
+  } catch (_error) {
+    return null;
+  }
+};
+
+const readNotifyReadTs = () => {
+  try {
+    const raw = localStorage.getItem(NOTIFY_READ_TS_KEY);
+    const value = Number(raw);
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch (_error) {
+    return 0;
+  }
+};
+
+const saveNotifyReadTs = (ts) => {
+  try {
+    localStorage.setItem(NOTIFY_READ_TS_KEY, String(Number(ts) || 0));
+  } catch (_error) {}
+};
 
 // --- App state ---
 const state = {
@@ -302,6 +357,15 @@ const state = {
   sourceTotalBanks: 0,
   sourceEligibleBanks: 0,
   sourceBankNames: [],
+  sourceYears: [],
+  selectedYear: readStoredYear(),
+  selectedEligibilityBank: null,
+  selectedFinalBank: null,
+  selectiveEligibilityBanks: [],
+  selectiveFinalBanks: [],
+  lastRunRequest: null,
+  notifications: [],
+  unreadNotifications: 0,
 };
 
 const runConfigs = {
@@ -617,6 +681,12 @@ const setReadinessIdle = () => {
   if (readinessChip) {
     readinessChip.textContent = "Ready";
   }
+  if (healthValue) {
+    healthValue.textContent = "100%";
+  }
+  if (confidenceRing) {
+    confidenceRing.style.setProperty("--progress", "1");
+  }
 };
 
 const setReadinessActive = (runType, completed = 0, total = 0) => {
@@ -653,9 +723,8 @@ const syncOverlayToggle = () => {
   if (!openOverlayBtn) {
     return;
   }
-  const isHidden = !overlay.classList.contains("show");
-  const shouldShow = isHidden && (state.running || overlay.classList.contains("complete"));
-  openOverlayBtn.classList.toggle("visible", shouldShow);
+  openOverlayBtn.classList.add("visible");
+  openOverlayBtn.disabled = !state.running;
 };
 
 const showOverlay = () => {
@@ -1456,7 +1525,7 @@ const handleLogLine = (line) => {
 };
 
 // --- Run lifecycle helpers ---
-const finalizeRun = (runType = "extraction") => {
+const finalizeRun = (runType = "extraction", options = {}) => {
   const config = runConfigs[runType] || runConfigs.extraction;
   overlay.classList.add("complete");
   statusLabel.textContent = config.completedStatus || config.statusText || "Complete";
@@ -1490,12 +1559,14 @@ const finalizeRun = (runType = "extraction") => {
   clearRunStatusSnapshot();
   clearRunUiSnapshot();
   stopRunStatusPolling();
+  setReadinessIdle();
+  refreshNotifications();
   updateStopButtonState();
   syncOverlayToggle();
 };
 
 // --- Start scraper run (SSE stream) ---
-const startRunMode = (runType) => {
+const startRunMode = (runType, options = {}) => {
   const config = runConfigs[runType] || runConfigs.extraction;
   if (state.running) {
     showOverlay();
@@ -1529,15 +1600,38 @@ const startRunMode = (runType) => {
   setProgress(0);
   progressHint.textContent = config.initialHint || "Waiting for run";
   resetSteps();
+  if (runBankName && options.selectedBank) {
+    runBankName.textContent = String(options.selectedBank);
+  }
   if (runType === "eligibility") {
     setOutputMode("eligibility");
   }
 
   state.runStart = Date.now();
+  state.lastRunRequest = {
+    runType,
+    options: {
+      selectedBank: options.selectedBank ? String(options.selectedBank) : null,
+    },
+  };
   startRunStatusPolling();
   addLog(`Run started: ${config.label}`);
+  const query = new URLSearchParams();
+  if (state.selectedYear) {
+    query.set("year", String(state.selectedYear));
+  }
+  if (options.selectedBank) {
+    query.set("bank", String(options.selectedBank));
+  }
+  const runUrl = query.toString() ? `${config.endpoint}?${query.toString()}` : config.endpoint;
+  if (state.selectedYear) {
+    addLog(`Using source year: ${state.selectedYear}`);
+  }
+  if (options.selectedBank) {
+    addLog(`Using selected bank: ${options.selectedBank}`);
+  }
 
-  const source = new EventSource(config.endpoint);
+  const source = new EventSource(runUrl);
   state.runSource = source;
 
   source.onmessage = (event) => {
@@ -1555,7 +1649,7 @@ const startRunMode = (runType) => {
       if (payload.type === "complete") {
         source.close();
         const completedRun = payload.run || runType;
-        finalizeRun(completedRun);
+        finalizeRun(completedRun, { successful: Number(payload.returncode || 0) === 0 });
         const completedConfig = runConfigs[completedRun] || config;
         if (completedConfig.onComplete) {
           completedConfig.onComplete();
@@ -1576,7 +1670,7 @@ const startRunMode = (runType) => {
         addLog(`Error: ${payload.message}`);
         source.close();
         state.runSource = null;
-        finalizeRun(runType);
+        finalizeRun(runType, { successful: false });
       }
     } catch (error) {
       addLog(event.data);
@@ -1593,6 +1687,234 @@ const startRunMode = (runType) => {
 
 const startRun = () => startRunMode("extraction");
 const startEligibilityRun = () => startRunMode("eligibility");
+const startSelectedEligibilityRun = () => {
+  const bankName = String(state.selectedEligibilityBank || "").trim();
+  if (!bankName) {
+    addLog("Select a bank from 'Run Selected Eligibility' first.");
+    return;
+  }
+  startRunMode("eligibility", { selectedBank: bankName });
+};
+const startSelectedFinalRun = () => {
+  const bankName = String(state.selectedFinalBank || "").trim();
+  if (!bankName) {
+    addLog("Select a bank from 'Run Selected Final' first.");
+    return;
+  }
+  startRunMode("extraction", { selectedBank: bankName });
+};
+
+const runPreviousMode = () => {
+  const previous = state.lastRunRequest;
+  if (previous && previous.runType) {
+    startRunMode(previous.runType, previous.options || {});
+    return;
+  }
+  startRun();
+};
+
+const setSelectedYear = (yearValue) => {
+  const numericYear = Number(yearValue);
+  if (!Number.isFinite(numericYear) || numericYear <= 0) {
+    state.selectedYear = null;
+    if (annualYearValue) {
+      annualYearValue.textContent = "----";
+    }
+    try {
+      localStorage.removeItem(YEAR_PREFS_KEY);
+    } catch (_error) {}
+    return;
+  }
+  state.selectedYear = numericYear;
+  if (annualYearValue) {
+    annualYearValue.textContent = String(numericYear);
+  }
+  try {
+    localStorage.setItem(YEAR_PREFS_KEY, String(numericYear));
+  } catch (_error) {}
+};
+setSelectedYear(state.selectedYear);
+
+const syncYearDropdown = (years) => {
+  if (!annualYearMenu) {
+    return;
+  }
+  const fixedYears = Array.from(
+    { length: MAX_YEAR_OPTION - MIN_YEAR_OPTION + 1 },
+    (_, index) => MIN_YEAR_OPTION + index
+  );
+  const normalizedYears = Array.from(
+    new Set(
+      [...fixedYears, ...(years || [])]
+        .map((year) => Number(year))
+        .filter((year) => Number.isFinite(year) && year > 0)
+    )
+  ).sort((a, b) => b - a);
+  state.sourceYears = normalizedYears;
+
+  const preferredYear = state.selectedYear;
+  annualYearMenu.innerHTML = "";
+
+  if (!normalizedYears.length) {
+    state.selectedYear = null;
+    if (annualYearValue) {
+      annualYearValue.textContent = "----";
+    }
+    return;
+  }
+
+  normalizedYears.forEach((year) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "year-option";
+    option.setAttribute("role", "option");
+    option.dataset.year = String(year);
+    option.textContent = String(year);
+    annualYearMenu.appendChild(option);
+  });
+
+  const nextYear = normalizedYears.includes(preferredYear) ? preferredYear : null;
+  setSelectedYear(nextYear);
+  Array.from(annualYearMenu.querySelectorAll(".year-option")).forEach((node) => {
+    node.classList.toggle("active", nextYear !== null && Number(node.dataset.year) === nextYear);
+  });
+};
+
+const closeYearMenu = () => {
+  if (!annualYearMenu || !annualYearTrigger) {
+    return;
+  }
+  annualYearMenu.hidden = true;
+  annualYearTrigger.setAttribute("aria-expanded", "false");
+};
+
+const openYearMenu = () => {
+  if (!annualYearMenu || !annualYearTrigger) {
+    return;
+  }
+  annualYearMenu.hidden = false;
+  annualYearTrigger.setAttribute("aria-expanded", "true");
+};
+
+const renderNotifications = () => {
+  if (!notifyMenu) {
+    return;
+  }
+  notifyMenu.innerHTML = "";
+  if (!state.notifications.length) {
+    const empty = document.createElement("div");
+    empty.className = "notify-empty";
+    empty.textContent = "No notification yet.";
+    notifyMenu.appendChild(empty);
+    return;
+  }
+  state.notifications.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "notify-item";
+    const ts = document.createElement("span");
+    ts.className = "notify-time";
+    ts.textContent = item.time || "";
+    const text = document.createElement("span");
+    text.className = "notify-text";
+    text.textContent = item.text || "";
+    row.append(ts, text);
+    notifyMenu.appendChild(row);
+  });
+};
+
+const refreshNotifications = async () => {
+  try {
+    const response = await fetch("/api/notifications", { cache: "no-store" });
+    if (!response.ok) {
+      state.notifications = [];
+      state.unreadNotifications = 0;
+      renderNotifications();
+      syncNotifyBadge();
+      return;
+    }
+    const payload = await response.json();
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    state.notifications = items
+      .filter((item) => item && typeof item === "object" && String(item.text || "").trim())
+      .slice(0, 10);
+    const lastReadTs = readNotifyReadTs();
+    state.unreadNotifications = state.notifications.filter((item) => Number(item.ts || 0) > lastReadTs).length;
+    renderNotifications();
+    syncNotifyBadge();
+  } catch (_error) {
+    state.notifications = [];
+    state.unreadNotifications = 0;
+    renderNotifications();
+    syncNotifyBadge();
+  }
+};
+
+const syncNotifyBadge = () => {
+  if (!notifyBadge) {
+    return;
+  }
+  const unread = Number(state.unreadNotifications || 0);
+  if (unread <= 0) {
+    notifyBadge.hidden = true;
+    notifyBadge.style.display = "none";
+    notifyBadge.setAttribute("aria-hidden", "true");
+    notifyBadge.textContent = "0";
+    return;
+  }
+  notifyBadge.hidden = false;
+  notifyBadge.style.display = "inline-flex";
+  notifyBadge.setAttribute("aria-hidden", "false");
+  notifyBadge.textContent = unread > 99 ? "99+" : String(unread);
+};
+
+const closeNotifyMenu = () => {
+  if (!notifyMenu || !notifyTrigger) {
+    return;
+  }
+  notifyMenu.hidden = true;
+  notifyTrigger.setAttribute("aria-expanded", "false");
+};
+
+const openNotifyMenu = () => {
+  if (!notifyMenu || !notifyTrigger) {
+    return;
+  }
+  notifyMenu.hidden = false;
+  notifyTrigger.setAttribute("aria-expanded", "true");
+  const latestTs = state.notifications.reduce((max, item) => Math.max(max, Number(item?.ts || 0)), 0);
+  if (latestTs > 0) {
+    saveNotifyReadTs(latestTs);
+  }
+  state.unreadNotifications = 0;
+  syncNotifyBadge();
+};
+
+const appendRunNotification = (runType) => {
+  const previous = state.lastRunRequest || {};
+  const selectedBank = String(previous?.options?.selectedBank || "").trim();
+  const yearPart = state.selectedYear ? ` (${state.selectedYear})` : "";
+  let text = "";
+  if (runType === "eligibility") {
+    text = selectedBank
+      ? `Selective eligibility completed: ${selectedBank}${yearPart}`
+      : `Full eligibility scan completed${yearPart}`;
+  } else {
+    text = selectedBank
+      ? `Selective final scraping completed: ${selectedBank}${yearPart}`
+      : `Full final scraping completed${yearPart}`;
+  }
+  const now = new Date();
+  const message = {
+    time: now.toLocaleString(),
+    text,
+  };
+  state.notifications.unshift(message);
+  state.notifications = state.notifications.slice(0, 10);
+  state.unreadNotifications = Math.min(999, Number(state.unreadNotifications || 0) + 1);
+  renderNotifications();
+  syncNotifyBadge();
+  saveNotifyReadTs(0);
+};
 
 const stopRunStatusPolling = () => {
   if (state.statusPollTimer) {
@@ -1915,10 +2237,62 @@ const applyExtractionRecord = (record) => {
   scheduleOutputPanelHeight();
 };
 
+const normalizeBankList = (names) =>
+  Array.from(new Set((names || []).map((name) => String(name || "").trim()).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+const closeBankMenus = () => {
+  if (selectedEligibilityMenu) {
+    selectedEligibilityMenu.hidden = true;
+  }
+  if (selectedFinalMenu) {
+    selectedFinalMenu.hidden = true;
+  }
+  if (runSelectedEligibilityBtn) {
+    runSelectedEligibilityBtn.setAttribute("aria-expanded", "false");
+  }
+  if (runSelectedFinalBtn) {
+    runSelectedFinalBtn.setAttribute("aria-expanded", "false");
+  }
+};
+
+const populateBankMenu = (menuEl, names, currentName, onPick, emptyLabel) => {
+  if (!menuEl) {
+    return;
+  }
+  menuEl.innerHTML = "";
+  const normalized = normalizeBankList(names);
+  if (!normalized.length) {
+    const empty = document.createElement("button");
+    empty.type = "button";
+    empty.className = "year-option";
+    empty.textContent = emptyLabel;
+    empty.disabled = true;
+    menuEl.appendChild(empty);
+    return;
+  }
+  normalized.forEach((name) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "year-option";
+    option.textContent = name;
+    option.dataset.bank = name;
+    if (currentName && name === currentName) {
+      option.classList.add("active");
+    }
+    option.addEventListener("click", () => onPick(name));
+    menuEl.appendChild(option);
+  });
+};
+
 // --- API calls: sources ---
 const loadSources = async () => {
   try {
-    const response = await fetch("/api/sources");
+    const sourcesUrl = state.selectedYear
+      ? `/api/sources?year=${encodeURIComponent(String(state.selectedYear))}`
+      : "/api/sources";
+    const response = await fetch(sourcesUrl);
     if (!response.ok) {
       return;
     }
@@ -1938,15 +2312,49 @@ const loadSources = async () => {
           .filter((year) => Number.isFinite(year) && year > 0)
       )
     ).sort((a, b) => b - a);
-    if (annualYearChip) {
-      if (years.length === 1) {
-        annualYearChip.textContent = `Year ${years[0]}`;
-      } else if (years.length > 1) {
-        annualYearChip.textContent = `Year ${years[0]}`;
-      } else {
-        annualYearChip.textContent = "Year --";
-      }
+    syncYearDropdown(years);
+    state.selectiveEligibilityBanks = normalizeBankList(allSources.map((entry) => entry?.bank));
+    state.selectiveFinalBanks = normalizeBankList(eligibleSources.map((entry) => entry?.bank));
+    if (state.selectedEligibilityBank && !state.selectiveEligibilityBanks.includes(state.selectedEligibilityBank)) {
+      state.selectedEligibilityBank = null;
     }
+    if (state.selectedFinalBank && !state.selectiveFinalBanks.includes(state.selectedFinalBank)) {
+      state.selectedFinalBank = null;
+    }
+    if (selectedEligibilityLabel) {
+      selectedEligibilityLabel.textContent = state.selectedEligibilityBank || "Select bank";
+    }
+    if (selectedFinalLabel) {
+      selectedFinalLabel.textContent = state.selectedFinalBank || "Select eligible bank";
+    }
+    populateBankMenu(
+      selectedEligibilityMenu,
+      state.selectiveEligibilityBanks,
+      state.selectedEligibilityBank,
+      (picked) => {
+        state.selectedEligibilityBank = picked;
+        if (selectedEligibilityLabel) {
+          selectedEligibilityLabel.textContent = picked;
+        }
+        closeBankMenus();
+        startSelectedEligibilityRun();
+      },
+      "No banks for selected year"
+    );
+    populateBankMenu(
+      selectedFinalMenu,
+      state.selectiveFinalBanks,
+      state.selectedFinalBank,
+      (picked) => {
+        state.selectedFinalBank = picked;
+        if (selectedFinalLabel) {
+          selectedFinalLabel.textContent = picked;
+        }
+        closeBankMenus();
+        startSelectedFinalRun();
+      },
+      "No eligible banks for selected year"
+    );
     if (eligibleSources.length) {
       setRunBankOrder(eligibleSources.map((entry) => entry.bank));
     } else if (allSources.length) {
@@ -1966,6 +2374,93 @@ const loadSources = async () => {
     return;
   }
 };
+
+if (annualYearTrigger && annualYearMenu) {
+  annualYearTrigger.addEventListener("click", () => {
+    if (annualYearMenu.hidden) {
+      openYearMenu();
+    } else {
+      closeYearMenu();
+    }
+  });
+
+  annualYearMenu.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target.closest(".year-option") : null;
+    if (!target) {
+      return;
+    }
+    const nextYear = Number(target.dataset.year);
+    setSelectedYear(nextYear);
+    Array.from(annualYearMenu.querySelectorAll(".year-option")).forEach((node) => {
+      node.classList.toggle("active", node === target);
+    });
+    closeYearMenu();
+    if (state.selectedYear) {
+      addLog(`Year selected: ${state.selectedYear}`);
+    }
+    loadSources();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!yearPicker || yearPicker.contains(event.target)) {
+      return;
+    }
+    closeYearMenu();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeYearMenu();
+      closeBankMenus();
+      closeNotifyMenu();
+    }
+  });
+}
+
+if (runSelectedEligibilityBtn && selectedEligibilityMenu) {
+  runSelectedEligibilityBtn.addEventListener("click", () => {
+    const willOpen = selectedEligibilityMenu.hidden;
+    closeBankMenus();
+    if (willOpen) {
+      selectedEligibilityMenu.hidden = false;
+      runSelectedEligibilityBtn.setAttribute("aria-expanded", "true");
+    }
+  });
+}
+
+if (runSelectedFinalBtn && selectedFinalMenu) {
+  runSelectedFinalBtn.addEventListener("click", () => {
+    const willOpen = selectedFinalMenu.hidden;
+    closeBankMenus();
+    if (willOpen) {
+      selectedFinalMenu.hidden = false;
+      runSelectedFinalBtn.setAttribute("aria-expanded", "true");
+    }
+  });
+}
+
+if (notifyTrigger && notifyMenu) {
+  notifyTrigger.addEventListener("click", () => {
+    const willOpen = notifyMenu.hidden;
+    closeNotifyMenu();
+    if (willOpen) {
+      refreshNotifications().finally(() => openNotifyMenu());
+      return;
+    }
+  });
+}
+
+document.addEventListener("click", (event) => {
+  const inEligibilityPicker = selectedEligibilityPicker && selectedEligibilityPicker.contains(event.target);
+  const inFinalPicker = selectedFinalPicker && selectedFinalPicker.contains(event.target);
+  const inNotifyPicker = notifyPicker && notifyPicker.contains(event.target);
+  if (!inEligibilityPicker && !inFinalPicker) {
+    closeBankMenus();
+  }
+  if (!inNotifyPicker) {
+    closeNotifyMenu();
+  }
+});
 
 // --- API calls: scorecards ---
 const loadScorecards = async () => {
@@ -2017,13 +2512,20 @@ closeOverlay.addEventListener("click", () => {
 
 if (openOverlayBtn) {
   openOverlayBtn.addEventListener("click", () => {
+    if (openOverlayBtn.disabled) {
+      return;
+    }
     showOverlay();
   });
 }
 
-runButtons.forEach((button) => {
-  button.addEventListener("click", startRun);
-});
+if (runBtn) {
+  runBtn.addEventListener("click", startRun);
+}
+
+if (runAgainBtn) {
+  runAgainBtn.addEventListener("click", runPreviousMode);
+}
 
 if (eligibilityBtn) {
   eligibilityBtn.addEventListener("click", startEligibilityRun);
@@ -2280,6 +2782,7 @@ window.addEventListener("load", () => {
       return;
     }
     document.body.classList.add("loaded");
+    refreshNotifications();
     const uiSnapshot = loadRunUiSnapshot();
     if (uiSnapshot && uiSnapshot.running) {
       state.running = true;
@@ -2295,18 +2798,22 @@ window.addEventListener("load", () => {
       const progressMatch = String(uiSnapshot.progressText || "").match(/(\d+)/);
       const restoredProgress = progressMatch ? Number(progressMatch[1]) : 0;
       setProgress(Number.isFinite(restoredProgress) ? restoredProgress : 0);
-      showOverlay();
     }
     const snapshot = loadRunStatusSnapshot();
     if (snapshot && snapshot.runs) {
-      applyRunStatus(snapshot.runs, true);
+      applyRunStatus(snapshot.runs, false);
     }
-    loadRunStatus(true);
+    loadRunStatus(false);
     startRunStatusPolling();
     loadSources();
     loadScorecards();
     loadEligibilityScorecards();
     scheduleOutputPanelHeight();
+    if (!state.running) {
+      hideOverlay();
+      clearRunUiSnapshot();
+      clearRunStatusSnapshot();
+    }
     syncOverlayToggle();
   });
 });

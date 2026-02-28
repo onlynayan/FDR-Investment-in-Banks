@@ -37,7 +37,19 @@
         </div>
       </div>
       <div class="top-actions">
-        <span class="year-label" id="annualYearChip">Year --</span>
+        <div class="year-picker" id="yearPicker">
+          <button
+            type="button"
+            class="year-trigger"
+            id="annualYearTrigger"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-controls="annualYearMenu"
+          >
+            <span id="annualYearValue">----</span>
+          </button>
+          <div class="year-menu" id="annualYearMenu" role="listbox" hidden></div>
+        </div>
         <button class="ghost" id="eligibilityBtn">Eligibility scan</button>
         <button class="primary" id="runBtn">Run extraction</button>
         <button class="ghost danger" id="logoutBtn" type="button">Logout</button>
@@ -55,7 +67,34 @@
             compliance.
           </p>
           <div class="hero-actions">
-            <button class="primary" id="runBtnHero">Run now</button>
+            <div class="hero-run-picker" id="selectedEligibilityPicker">
+              <button
+                class="primary bank-run-trigger"
+                id="runSelectedEligibilityBtn"
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-controls="selectedEligibilityMenu"
+              >
+                <span class="bank-run-title">Run Selected Eligibility</span>
+                <span class="bank-run-value" id="selectedEligibilityLabel">Select bank</span>
+              </button>
+              <div class="year-menu bank-run-menu" id="selectedEligibilityMenu" role="listbox" hidden></div>
+            </div>
+            <div class="hero-run-picker" id="selectedFinalPicker">
+              <button
+                class="ghost bank-run-trigger"
+                id="runSelectedFinalBtn"
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-controls="selectedFinalMenu"
+              >
+                <span class="bank-run-title">Run Selected Final</span>
+                <span class="bank-run-value" id="selectedFinalLabel">Select eligible bank</span>
+              </button>
+              <div class="year-menu bank-run-menu" id="selectedFinalMenu" role="listbox" hidden></div>
+            </div>
             <button class="ghost" id="viewScorecard">View scorecard</button>
           </div>
           <div class="hero-stats">
@@ -104,9 +143,9 @@
               <div class="chip accent" id="readinessChip">Ready</div>
             </div>
             <div class="readiness-center">
-              <div class="confidence-ring" id="confidenceRing" style="--progress: 0.85">
+              <div class="confidence-ring" id="confidenceRing" style="--progress: 1">
                 <div class="ring-center">
-                  <p class="ring-value" id="healthValue">92%</p>
+                  <p class="ring-value" id="healthValue">100%</p>
                 </div>
               </div>
               <div class="readiness-metric center">
@@ -372,6 +411,23 @@
     </div>
   </div>
   <!-- Floating overlay shortcut -->
+  <div class="notify-picker floating-notify" id="notifyPicker">
+    <button
+      type="button"
+      class="notify-trigger"
+      id="notifyTrigger"
+      aria-haspopup="listbox"
+      aria-expanded="false"
+      aria-controls="notifyMenu"
+      title="Run notifications"
+    >
+      <span class="notify-icon" aria-hidden="true">
+        <img src="images/message-icon.png" alt="" />
+      </span>
+      <span class="notify-badge" id="notifyBadge" hidden>0</span>
+    </button>
+    <div class="notify-menu" id="notifyMenu" role="listbox" hidden></div>
+  </div>
   <button class="floating-run" id="openOverlay" type="button">Live run</button>
 
   <!-- App scripts -->

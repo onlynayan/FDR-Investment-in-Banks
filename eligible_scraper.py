@@ -3825,6 +3825,23 @@ def select_best_match_with_confidence(field_name, matches, year):
 def score_field_value(field_name, value):
     if value is None:
         return None
+    numeric_fields = {
+        "Capital Adequacy Ratio (CRAR)",
+        "Leverage Ratio (LR)",
+        "Non-Performing Loan Ratio (NPL)",
+        "Provision Coverage Ratio (PCR)",
+        "Loan to Deposit Ratio (LDR)",
+        "Return on Assets (ROA)",
+        "Return on Equity (ROE)",
+        "Net Interest Margin (NIM)",
+        "Liquidity Coverage Ratio (LCR)",
+        "Net Stable Funding Ratio (NSFR)",
+        "Cash to Deposit Ratio (CDR)",
+    }
+    if field_name in numeric_fields:
+        value = parse_numeric(value)
+        if value is None:
+            return 0
     if field_name == "Capital Adequacy Ratio (CRAR)":
         if value > 14:
             return 15
@@ -3959,10 +3976,13 @@ def emit_eligibility_data(
     year,
     npl_value,
     npl_page,
+    pcr_value,
+    pcr_page,
     rating_value,
     rating_page,
     pdf_path,
     npl_score=None,
+    pcr_score=None,
     rating_score=None,
 ):
     payload = {
@@ -3970,9 +3990,12 @@ def emit_eligibility_data(
         "year": year,
         "npl": npl_value,
         "nplPage": npl_page,
+        "pcr": pcr_value,
+        "pcrPage": pcr_page,
         "rating": rating_value,
         "ratingPage": rating_page,
         "nplScore": npl_score,
+        "pcrScore": pcr_score,
         "ratingScore": rating_score,
         "pdf_path": pdf_path,
     }
@@ -4595,6 +4618,8 @@ def main():
 
     if args.pdf_url or args.pdf_path or args.bank:
         print(f"Eligibility scan: {args.bank} {args.year}")
+        eligibility = None
+        scan_ok = True
         try:
             eligibility = run_single(
                 args.pdf_url,
@@ -4620,6 +4645,7 @@ def main():
             rating_page = rating_match.get("page") if rating_match else None
         except Exception as exc:
             print(f"Eligibility scan failed for {args.bank}: {exc}", file=sys.stderr)
+            scan_ok = False
             bank_label = args.bank
             npl_value = None
             pcr_value = None
@@ -4633,23 +4659,30 @@ def main():
             npl_value = ""
         if rating_value is None:
             rating_value = ""
-        push_eligibility_to_apex(bank_label, args.year, npl_value, rating_value, pcr=pcr_value)
+        if scan_ok:
+            push_eligibility_to_apex(bank_label, args.year, npl_value, rating_value, pcr=pcr_value)
+        else:
+            print(f"APEX push skipped for {bank_label} {args.year} due to scan failure.", file=sys.stderr)
         print(
             f"Eligibility result: {bank_label} | NPL={npl_value} (p{npl_page}) | "
             f"PCR={pcr_value} (p{pcr_page}) | CR={rating_value} (p{rating_page})"
         )
-        pdf_path = eligibility.get("pdf_path") or args.pdf_path or args.pdf_url
+        pdf_path = (eligibility.get("pdf_path") if isinstance(eligibility, dict) else None) or args.pdf_path or args.pdf_url
         npl_score = score_field_value("Non-Performing Loan Ratio (NPL)", npl_value)
+        pcr_score = score_field_value("Provision Coverage Ratio (PCR)", pcr_value)
         rating_score = score_field_value("Credit Rating (CR)", rating_value)
         emit_eligibility_data(
             bank_label,
             args.year,
             npl_value,
             npl_page,
+            pcr_value,
+            pcr_page,
             rating_value,
             rating_page,
             pdf_path,
             npl_score=npl_score,
+            pcr_score=pcr_score,
             rating_score=rating_score,
         )
         if not args.no_output:
@@ -4685,85 +4718,99 @@ def main():
     for entry_year, entries in entries_by_year.items():
         eligibility_rows = []
         for entry in entries:
-            entry_pdf_url = entry.get("pdf_url")
-            entry_pdf_path = entry.get("pdf_path")
-            entry_bank = entry.get("bank")
-            print(f"Eligibility scan: {entry_bank} {entry_year}")
             try:
-                eligibility = run_single(
-                    entry_pdf_url,
-                    entry_pdf_path,
-                    entry_bank,
+                eligibility = None
+                scan_ok = True
+                entry_pdf_url = entry.get("pdf_url")
+                entry_pdf_path = entry.get("pdf_path")
+                entry_bank = entry.get("bank")
+                print(f"Eligibility scan: {entry_bank} {entry_year}")
+                try:
+                    eligibility = run_single(
+                        entry_pdf_url,
+                        entry_pdf_path,
+                        entry_bank,
+                        entry_year,
+                        fields_override=eligibility_fields,
+                        eligibility_only=True,
+                    )
+                    if isinstance(eligibility, int):
+                        raise RuntimeError("Eligibility scan failed")
+                    bank_label = entry_bank or eligibility.get("bank")
+                    values = eligibility.get("values", {})
+                    matches = eligibility.get("matches", {})
+                    npl_match = matches.get("Non-Performing Loan Ratio (NPL)")
+                    pcr_match = matches.get("Provision Coverage Ratio (PCR)")
+                    rating_match = matches.get("Credit Rating (CR)")
+                    npl_value = values.get("Non-Performing Loan Ratio (NPL)")
+                    pcr_value = values.get("Provision Coverage Ratio (PCR)")
+                    rating_value = values.get("Credit Rating (CR)")
+                    npl_page = npl_match.get("page") if npl_match else None
+                    pcr_page = pcr_match.get("page") if pcr_match else None
+                    rating_page = rating_match.get("page") if rating_match else None
+                except Exception as exc:
+                    print(f"Eligibility scan failed for {entry_bank}: {exc}", file=sys.stderr)
+                    scan_ok = False
+                    bank_label = entry_bank
+                    npl_value = None
+                    pcr_value = None
+                    rating_value = None
+                    npl_page = None
+                    pcr_page = None
+                    rating_page = None
+                if pcr_value is None:
+                    pcr_value = ""
+                if npl_value is None:
+                    npl_value = ""
+                if rating_value is None:
+                    rating_value = ""
+                if scan_ok:
+                    push_eligibility_to_apex(bank_label, entry_year, npl_value, rating_value, pcr=pcr_value)
+                else:
+                    print(f"APEX push skipped for {bank_label} {entry_year} due to scan failure.", file=sys.stderr)
+                pdf_path = (eligibility.get("pdf_path") if isinstance(eligibility, dict) else None) or entry_pdf_path or entry_pdf_url
+                npl_score = score_field_value("Non-Performing Loan Ratio (NPL)", npl_value)
+                pcr_score = score_field_value("Provision Coverage Ratio (PCR)", pcr_value)
+                rating_score = score_field_value("Credit Rating (CR)", rating_value)
+                emit_eligibility_data(
+                    bank_label,
                     entry_year,
-                    fields_override=eligibility_fields,
-                    eligibility_only=True,
+                    npl_value,
+                    npl_page,
+                    pcr_value,
+                    pcr_page,
+                    rating_value,
+                    rating_page,
+                    pdf_path,
+                    npl_score=npl_score,
+                    pcr_score=pcr_score,
+                    rating_score=rating_score,
                 )
-                if isinstance(eligibility, int):
-                    raise RuntimeError("Eligibility scan failed")
-                bank_label = entry_bank or eligibility.get("bank")
-                values = eligibility.get("values", {})
-                matches = eligibility.get("matches", {})
-                npl_match = matches.get("Non-Performing Loan Ratio (NPL)")
-                pcr_match = matches.get("Provision Coverage Ratio (PCR)")
-                rating_match = matches.get("Credit Rating (CR)")
-                npl_value = values.get("Non-Performing Loan Ratio (NPL)")
-                pcr_value = values.get("Provision Coverage Ratio (PCR)")
-                rating_value = values.get("Credit Rating (CR)")
-                npl_page = npl_match.get("page") if npl_match else None
-                pcr_page = pcr_match.get("page") if pcr_match else None
-                rating_page = rating_match.get("page") if rating_match else None
+                eligibility_rows.append(
+                    {
+                        "Bank Name": bank_label,
+                        "Non Performing Loan Ratio": npl_value,
+                        "NPL Page": npl_page,
+                        "Provision Coverage Ratio": pcr_value,
+                        "PCR Page": pcr_page,
+                        "Credit Rating": rating_value,
+                        "Credit Rating Page": rating_page,
+                    }
+                )
+                print(
+                    f"Eligibility result: {bank_label} | NPL={npl_value} (p{npl_page}) | "
+                    f"PCR={pcr_value} (p{pcr_page}) | CR={rating_value} (p{rating_page})"
+                )
+                normalized_rating = normalize_credit_rating(rating_value)
+                numeric_npl = parse_numeric(npl_value)
+                is_eligible = (
+                    numeric_npl is not None
+                    and numeric_npl < 8
+                    and normalized_rating in ("AAA", "AA")
+                )
             except Exception as exc:
-                print(f"Eligibility scan failed for {entry_bank}: {exc}", file=sys.stderr)
-                bank_label = entry_bank
-                npl_value = None
-                pcr_value = None
-                rating_value = None
-                npl_page = None
-                pcr_page = None
-                rating_page = None
-            if pcr_value is None:
-                pcr_value = ""
-            if npl_value is None:
-                npl_value = ""
-            if rating_value is None:
-                rating_value = ""
-            push_eligibility_to_apex(bank_label, entry_year, npl_value, rating_value, pcr=pcr_value)
-            pdf_path = eligibility.get("pdf_path") or entry_pdf_path or entry_pdf_url
-            npl_score = score_field_value("Non-Performing Loan Ratio (NPL)", npl_value)
-            rating_score = score_field_value("Credit Rating (CR)", rating_value)
-            emit_eligibility_data(
-                bank_label,
-                entry_year,
-                npl_value,
-                npl_page,
-                rating_value,
-                rating_page,
-                pdf_path,
-                npl_score=npl_score,
-                rating_score=rating_score,
-            )
-            eligibility_rows.append(
-                {
-                    "Bank Name": bank_label,
-                    "Non Performing Loan Ratio": npl_value,
-                    "NPL Page": npl_page,
-                    "Provision Coverage Ratio": pcr_value,
-                    "PCR Page": pcr_page,
-                    "Credit Rating": rating_value,
-                    "Credit Rating Page": rating_page,
-                }
-            )
-            print(
-                f"Eligibility result: {bank_label} | NPL={npl_value} (p{npl_page}) | "
-                f"PCR={pcr_value} (p{pcr_page}) | CR={rating_value} (p{rating_page})"
-            )
-            normalized_rating = normalize_credit_rating(rating_value)
-            numeric_npl = parse_numeric(npl_value)
-            is_eligible = (
-                numeric_npl is not None
-                and numeric_npl < 8
-                and normalized_rating in ("AAA", "AA")
-            )
+                print(f"Eligibility pipeline error for {entry.get('bank')} {entry_year}: {exc}", file=sys.stderr)
+                continue
 
         if not args.no_output:
             ensure_dir(args.output_dir)

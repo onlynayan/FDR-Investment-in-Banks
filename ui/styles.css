@@ -301,6 +301,8 @@ body.locked {
 
 /* --- Header / branding --- */
 .topbar {
+  position: relative;
+  z-index: 1400;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -344,6 +346,8 @@ body.locked {
 }
 
 .top-actions {
+  position: relative;
+  z-index: 1401;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -356,6 +360,247 @@ body.locked {
   text-transform: uppercase;
   white-space: nowrap;
   padding: 0 2px;
+}
+
+.year-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+
+.notify-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 42px;
+}
+
+.notify-trigger {
+  border: none;
+  border-radius: 0;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  background: transparent;
+  color: #f4f9ff;
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.notify-trigger:hover {
+  transform: translateY(-1px);
+}
+
+.notify-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(228, 238, 250, 0.95);
+}
+
+.notify-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.notify-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(255, 102, 120, 0.95), rgba(238, 86, 102, 0.9));
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 8px 18px rgba(238, 86, 102, 0.35);
+}
+
+.notify-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(300px, 86vw);
+  max-height: 240px;
+  overflow-y: auto;
+  border-radius: 14px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(160deg, rgba(9, 16, 28, 0.92), rgba(12, 21, 36, 0.88));
+  box-shadow: 0 20px 34px rgba(2, 6, 12, 0.48);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 1250;
+}
+
+.notify-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notify-menu::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+
+.notify-menu::-webkit-scrollbar-thumb {
+  background: rgba(46, 217, 184, 0.38);
+  border-radius: 999px;
+}
+
+.floating-notify {
+  position: fixed;
+  right: 8px;
+  bottom: 60px;
+  width: 84px;
+  display: flex;
+  justify-content: center;
+  z-index: 13;
+  height: auto;
+}
+
+.floating-notify .notify-menu {
+  top: auto;
+  bottom: calc(100% + 10px);
+  right: 0;
+}
+
+.notify-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.notify-item:last-child {
+  margin-bottom: 0;
+}
+
+.notify-time {
+  display: block;
+  font-size: 11px;
+  color: rgba(174, 191, 214, 0.8);
+  margin-bottom: 2px;
+}
+
+.notify-text {
+  display: block;
+  font-size: 13px;
+  color: rgba(226, 237, 252, 0.96);
+}
+
+.notify-empty {
+  display: block;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 500;
+  color: rgba(208, 222, 240, 0.94);
+  padding: 10px 8px;
+  text-align: left;
+}
+
+.year-trigger {
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: 999px;
+  padding: 8px 34px 8px 14px;
+  min-width: 106px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  color: #f4f9ff;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+  cursor: pointer;
+  outline: none;
+  text-align: left;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 22px rgba(5, 10, 20, 0.35);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+}
+
+.year-picker::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid rgba(229, 237, 247, 0.9);
+  border-bottom: 2px solid rgba(229, 237, 247, 0.9);
+  transform: translateY(-60%) rotate(45deg);
+  pointer-events: none;
+}
+
+.year-picker:hover {
+  filter: saturate(112%);
+}
+
+.year-picker:hover .year-trigger {
+  border-color: rgba(46, 217, 184, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 12px 26px rgba(46, 217, 184, 0.16);
+}
+
+.year-trigger:focus-visible {
+  box-shadow: 0 0 0 2px rgba(46, 217, 184, 0.45);
+}
+
+.year-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 100%;
+  min-width: 120px;
+  max-height: 220px;
+  overflow-y: auto;
+  border-radius: 14px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(160deg, rgba(9, 16, 28, 0.92), rgba(12, 21, 36, 0.88));
+  box-shadow: 0 20px 34px rgba(2, 6, 12, 0.48);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 1200;
+}
+
+.year-option {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 7px 10px;
+  margin: 0;
+  background: transparent;
+  color: #d8e6f8;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-align: left;
+}
+
+.year-option:hover {
+  background: rgba(46, 217, 184, 0.12);
+  border-color: rgba(46, 217, 184, 0.24);
+}
+
+.year-option.active {
+  background: linear-gradient(135deg, rgba(46, 217, 184, 0.25), rgba(46, 217, 184, 0.14));
+  border-color: rgba(46, 217, 184, 0.35);
+  color: #e9fffb;
 }
 
 .chip {
@@ -457,20 +702,68 @@ h1 {
 
 .lead {
   font-family: "Montserrat Alternates", "Space Grotesk", "Segoe UI", sans-serif;
-  color: #e7f0ff;
-  font-size: 20px;
-  font-weight: 450;
-  letter-spacing: 0.1px;
-  line-height: 1.65;
+  color: rgba(233, 245, 255, 0.94);
+  font-size: clamp(16px, 1.65vw, 20px);
+  font-weight: 560;
+  letter-spacing: -0.006em;
+  line-height: 1.46;
+  max-width: 52ch;
+  text-wrap: balance;
   margin-bottom: 16px;
-  text-shadow: 0 8px 24px rgba(5, 9, 16, 0.6);
+  text-shadow: 0 8px 28px rgba(46, 217, 184, 0.12), 0 8px 20px rgba(5, 9, 16, 0.55);
 }
 
 .hero-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.hero-run-picker {
+  position: relative;
+}
+
+.bank-run-trigger {
+  min-width: 230px;
+  padding: 9px 34px 9px 14px;
+  text-align: left;
+  display: inline-grid;
+  gap: 2px;
+  align-items: center;
+  position: relative;
+}
+
+.bank-run-trigger::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid rgba(229, 237, 247, 0.9);
+  border-bottom: 2px solid rgba(229, 237, 247, 0.9);
+  transform: translateY(-60%) rotate(45deg);
+  pointer-events: none;
+}
+
+.bank-run-title {
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.bank-run-value {
+  font-size: 12px;
+  opacity: 0.88;
+  line-height: 1;
+}
+
+.bank-run-menu {
+  min-width: 100%;
+  width: max-content;
+  max-width: 320px;
 }
 
 .hero-stats {
@@ -581,7 +874,7 @@ h1 {
 }
 
 .confidence-ring {
-  --progress: 0.85;
+  --progress: 1;
   width: 140px;
   height: 140px;
   border-radius: 50%;
@@ -2057,6 +2350,16 @@ body.loaded .reveal {
     grid-template-columns: 1fr;
   }
 
+  .hero-run-picker {
+    width: 100%;
+  }
+
+  .bank-run-trigger {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+  }
+
   .overlay-body {
     grid-template-columns: 1fr;
   }
@@ -2067,6 +2370,10 @@ body.loaded .reveal {
 }
 
 @media (max-width: 720px) {
+  .app {
+    padding-bottom: 160px;
+  }
+
   .topbar {
     flex-direction: column;
     align-items: flex-start;
@@ -2074,16 +2381,32 @@ body.loaded .reveal {
 
   .top-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    grid-template-columns: minmax(108px, 1fr) 1fr 1fr;
+    grid-auto-rows: minmax(42px, auto);
+    gap: 6px;
+    column-gap: 8px;
+    width: 100%;
+    align-items: center;
+    justify-content: stretch;
+  }
+
+  .year-picker {
+    grid-column: 1;
+    width: 100%;
+    align-self: center;
+  }
+
+  .year-trigger {
+    min-width: 0;
     width: 100%;
   }
 
-  .year-label {
-    grid-column: 1 / -1;
-    display: block;
-    padding: 0;
-    white-space: nowrap;
+  #eligibilityBtn {
+    grid-column: 2;
+  }
+
+  #runBtn {
+    grid-column: 3;
   }
 
   #eligibilityBtn,
@@ -2096,6 +2419,23 @@ body.loaded .reveal {
     width: 100%;
     text-align: center;
     grid-column: 1 / -1;
+  }
+
+  .floating-notify {
+    right: 8px;
+    bottom: 58px;
+    width: 82px;
+  }
+
+  .floating-notify .notify-menu {
+    width: min(300px, calc(100vw - 24px));
+  }
+
+  .lead {
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 40ch;
+    letter-spacing: -0.003em;
   }
 
   .brand-logos img {
@@ -2219,20 +2559,31 @@ body.loaded .reveal {
 /* --- Floating action button --- */
 .floating-run {
   position: fixed;
-  right: 28px;
-  bottom: 28px;
-  padding: 10px 16px;
+  right: 8px;
+  bottom: 16px;
+  min-width: 84px;
+  padding: 8px 10px;
   border-radius: 999px;
   border: 1px solid rgba(46, 217, 184, 0.4);
   background: rgba(8, 12, 18, 0.85);
   color: var(--text);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
+  text-align: center;
   box-shadow: 0 16px 24px rgba(2, 6, 12, 0.45);
-  opacity: 0;
-  pointer-events: none;
+  opacity: 1;
+  pointer-events: auto;
   transition: opacity 0.2s ease, transform 0.2s ease;
   z-index: 12;
+}
+
+@media (max-width: 720px) {
+  .floating-run {
+    right: 8px;
+    bottom: 14px;
+    min-width: 82px;
+    padding: 8px 10px;
+  }
 }
 
 .floating-run.visible {
@@ -2241,6 +2592,21 @@ body.loaded .reveal {
   transform: translateY(0);
 }
 
-.floating-run:hover {
+.floating-run:hover:not(:disabled) {
   transform: translateY(-2px);
+}
+
+.floating-run:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(229, 237, 247, 0.7);
+  box-shadow: 0 10px 16px rgba(2, 6, 12, 0.32);
+}
+
+body.locked .floating-run,
+body.locked .floating-notify {
+  opacity: 0;
+  pointer-events: none;
 }

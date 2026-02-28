@@ -9,8 +9,9 @@ import time
 import argparse
 import threading
 import secrets
-from urllib.request import Request, urlopen
-from urllib.parse import quote, parse_qs, urlparse
+from datetime import datetime
+from urllib.request import Request, urlopen, build_opener, ProxyHandler
+from urllib.parse import quote, parse_qs, urlparse, urlencode
 import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -47,10 +48,13 @@ SCRAPER_ENTRY = "scraper.py"
 ELIGIBILITY_SCRAPER_ENTRY = "eligible_scraper.py"
 ELIGIBILITY_OUTPUT_DIR = ROOT / "eligible_output"
 ELIGIBLE_DOWNLOADS_DIR = ROOT / "eligible_downloads"
+ELIGIBILITY_SNAPSHOT_PATH = ROOT / "output" / "eligibility_snapshot.json"
 ELIGIBLE_WORKLIST_API = "http://103.163.96.251:8282/ords/cpa_invst/banks/worklist"
 LOGIN_API_URL = "http://103.163.96.251:8282/ords/cpa_invst/banks/login"
 SESSION_COOKIE_NAME = "fdr_session"
 SESSION_TTL_SECONDS = 60 * 60 * 12
+RUN_NOTIFICATIONS_PATH = ROOT / "output" / "run_notifications.json"
+RUN_NOTIFICATIONS_LIMIT = 10
 
 RUN_STATES = {
     "extraction": {
@@ -78,9 +82,80 @@ RUN_STATE_LOCK = threading.Lock()
 LAST_EXTRACTION_LOCK = threading.Lock()
 LAST_EXTRACTION_RECORDS = {}
 LAST_EXTRACTION_ORDER = []
+LAST_ELIGIBILITY_LOCK = threading.Lock()
+LAST_ELIGIBILITY_RECORDS = {}
+LAST_ELIGIBILITY_ORDER = []
 SESSION_LOCK = threading.Lock()
 SESSIONS = {}
 SOURCES_SYNC_TIMEOUT_SECONDS = 30
+NO_PROXY_OPENER = build_opener(ProxyHandler({}))
+RUN_NOTIFICATIONS_LOCK = threading.Lock()
+
+
+def urlopen_no_proxy(request, timeout=30):
+    return NO_PROXY_OPENER.open(request, timeout=timeout)
+
+
+def _load_run_notifications_unlocked():
+    try:
+        payload = json.loads(RUN_NOTIFICATIONS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    items = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        return []
+    cleaned = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        text = str(item.get("text") or "").strip()
+        if not text:
+            continue
+        cleaned.append(
+            {
+                "id": int(item.get("id") or int(time.time() * 1000)),
+                "ts": int(item.get("ts") or int(time.time() * 1000)),
+                "time": str(item.get("time") or ""),
+                "text": text,
+            }
+        )
+    return cleaned[:RUN_NOTIFICATIONS_LIMIT]
+
+
+def _save_run_notifications_unlocked(items):
+    RUN_NOTIFICATIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"items": items[:RUN_NOTIFICATIONS_LIMIT]}
+    RUN_NOTIFICATIONS_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _append_run_notification(run_type, selected_year=None, selected_bank=None, successful=True):
+    if not successful:
+        return
+    year_suffix = f" ({selected_year})" if selected_year else ""
+    bank_name = str(selected_bank or "").strip()
+    run_label = "eligibility" if run_type == "eligibility" else "final scraping"
+    if bank_name:
+        text = f"Selective {run_label} completed: {bank_name}{year_suffix}"
+    else:
+        text = f"Full {run_label} completed{year_suffix}"
+
+    now = datetime.now()
+    ts = int(now.timestamp() * 1000)
+    item = {
+        "id": ts,
+        "ts": ts,
+        "time": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "text": text,
+    }
+    with RUN_NOTIFICATIONS_LOCK:
+        items = _load_run_notifications_unlocked()
+        items.insert(0, item)
+        _save_run_notifications_unlocked(items[:RUN_NOTIFICATIONS_LIMIT])
+
+
+def _get_run_notifications():
+    with RUN_NOTIFICATIONS_LOCK:
+        return _load_run_notifications_unlocked()
 
 
 def _acquire_run_slot(run_type):
@@ -182,9 +257,15 @@ def _upsert_run_record(run_type, record):
             LAST_EXTRACTION_RECORDS[record_key] = record
             if record_key not in LAST_EXTRACTION_ORDER:
                 LAST_EXTRACTION_ORDER.append(record_key)
+    if run_type == "eligibility":
+        with LAST_ELIGIBILITY_LOCK:
+            LAST_ELIGIBILITY_RECORDS[record_key] = record
+            if record_key not in LAST_ELIGIBILITY_ORDER:
+                LAST_ELIGIBILITY_ORDER.append(record_key)
+            _persist_eligibility_snapshot_locked()
 
 
-def _estimate_total_for_eligibility():
+def _estimate_total_for_eligibility(selected_year=None):
     try:
         sources_payload = json.loads(SOURCES_PATH.read_text(encoding="utf-8"))
         sources = sources_payload.get("sources", []) if isinstance(sources_payload, dict) else []
@@ -193,13 +274,14 @@ def _estimate_total_for_eligibility():
     if not sources:
         return 0
     try:
-        eligible_banks = fetch_eligible_bank_names()
-        filtered = filter_sources_by_bank_names({"sources": sources}, eligible_banks)
+        year_sources = _filter_sources_by_year({"sources": sources}, selected_year)
+        eligible_banks = fetch_eligible_bank_names(selected_year=selected_year)
+        filtered = filter_sources_by_bank_names({"sources": year_sources}, eligible_banks)
         if filtered:
             return len(filtered)
     except Exception:
         pass
-    return len(sources)
+    return len(_filter_sources_by_year({"sources": sources}, selected_year))
 
 
 def _snapshot_run_states():
@@ -223,16 +305,49 @@ def _snapshot_run_states():
         return payload
 
 
-def _sync_sources_from_api():
+def _parse_year_value(value):
+    try:
+        parsed = int(str(value).strip())
+    except Exception:
+        return None
+    if parsed < 1900 or parsed > 2100:
+        return None
+    return parsed
+
+
+def _parse_bank_value(value):
+    text = str(value or "").strip()
+    return text or None
+
+
+def _filter_sources_by_year(sources_payload, selected_year):
+    sources = sources_payload.get("sources", []) if isinstance(sources_payload, dict) else []
+    if not selected_year:
+        return sources
+    filtered = []
+    for row in sources:
+        try:
+            row_year = int(row.get("year"))
+        except Exception:
+            continue
+        if row_year == selected_year:
+            filtered.append(row)
+    return filtered
+
+
+def _sync_sources_from_api(selected_year=None):
     if not all((sync_fetch_all_sources, sync_load_sources, sync_merge_sources, sync_save_sources)):
         return {
             "ok": False,
             "error": "sync_sources_from_api module is unavailable.",
         }
     try:
+        api_url = "http://103.163.96.251:8282/ords/cpa_invst/banks/sources"
+        if selected_year:
+            api_url = f"{api_url}?{urlencode({'year': selected_year})}"
         existing = sync_load_sources(SOURCES_PATH)
         incoming = sync_fetch_all_sources(
-            "http://103.163.96.251:8282/ords/cpa_invst/banks/sources",
+            api_url,
             timeout=SOURCES_SYNC_TIMEOUT_SECONDS,
         )
         merged, inserted = sync_merge_sources(existing, incoming)
@@ -333,7 +448,7 @@ def authenticate_apex_user(username, password):
         headers={"Content-Type": "application/json", "Accept": "application/json"},
         method="POST",
     )
-    with urlopen(req, timeout=30) as resp:
+    with urlopen_no_proxy(req, timeout=30) as resp:
         status_code = getattr(resp, "status", 200) or 200
         raw = resp.read().decode("utf-8", errors="replace")
     try:
@@ -454,6 +569,9 @@ def build_eligibility_record(payload):
     npl_source = build_pdf_viewer_url(
         file_url, page=payload.get("nplPage"), value=payload.get("npl"), prefer_percent=True
     )
+    pcr_source = build_pdf_viewer_url(
+        file_url, page=payload.get("pcrPage"), value=payload.get("pcr"), prefer_percent=True
+    )
     rating_source = build_pdf_viewer_url(
         file_url, page=payload.get("ratingPage"), value=payload.get("rating")
     )
@@ -462,11 +580,15 @@ def build_eligibility_record(payload):
         "year": payload.get("year"),
         "npl": payload.get("npl"),
         "nplPage": payload.get("nplPage"),
+        "pcr": payload.get("pcr"),
+        "pcrPage": payload.get("pcrPage"),
         "rating": payload.get("rating"),
         "ratingPage": payload.get("ratingPage"),
         "nplScore": payload.get("nplScore"),
+        "pcrScore": payload.get("pcrScore"),
         "ratingScore": payload.get("ratingScore"),
         "nplSource": npl_source,
+        "pcrSource": pcr_source,
         "ratingSource": rating_source,
     }
 
@@ -542,27 +664,58 @@ def _entry_bank_name(entry):
     return None
 
 
-def fetch_eligible_bank_names():
-    req = Request(
-        ELIGIBLE_WORKLIST_API,
-        headers={"Accept": "application/json", "User-Agent": "fdr-investment-in-banks-ui-server/1.0"},
-    )
-    with urlopen(req, timeout=30) as resp:
-        raw = resp.read().decode("utf-8", errors="replace")
-    payload = json.loads(raw)
-    items = _extract_list_payload(payload)
-    names = []
-    seen = set()
-    for item in items:
-        name = _entry_bank_name(item)
-        if not name:
+def _entry_fiscal_year(entry):
+    if not isinstance(entry, dict):
+        return None
+    for key in ("fiscal_year", "fiscalYear", "year", "FISCAL_YEAR"):
+        value = entry.get(key)
+        if value in (None, ""):
             continue
-        normalized = normalize_bank_name(name)
-        if not normalized or normalized in seen:
+        try:
+            return int(str(value).strip())
+        except Exception:
             continue
-        seen.add(normalized)
-        names.append(str(name).strip())
-    return names
+    return None
+
+
+def fetch_eligible_bank_names(selected_year=None):
+    candidate_urls = []
+    if selected_year:
+        candidate_urls.append(f"{ELIGIBLE_WORKLIST_API}?{urlencode({'year': selected_year})}")
+    candidate_urls.append(ELIGIBLE_WORKLIST_API)
+
+    for idx, api_url in enumerate(candidate_urls):
+        try:
+            req = Request(
+                api_url,
+                headers={"Accept": "application/json", "User-Agent": "fdr-investment-in-banks-ui-server/1.0"},
+            )
+            with urlopen_no_proxy(req, timeout=30) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+            payload = json.loads(raw)
+            items = _extract_list_payload(payload)
+        except Exception:
+            continue
+
+        # Fallback path: when year-filter query does not return data, use all items and filter locally.
+        if selected_year and idx > 0:
+            items = [item for item in items if _entry_fiscal_year(item) == selected_year]
+
+        names = []
+        seen = set()
+        for item in items:
+            name = _entry_bank_name(item)
+            if not name:
+                continue
+            normalized = normalize_bank_name(name)
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            names.append(str(name).strip())
+        if names:
+            return names
+
+    return []
 
 
 def filter_sources_by_bank_names(sources_payload, bank_names):
@@ -623,6 +776,100 @@ def _snapshot_last_extraction_scorecards():
             for key in LAST_EXTRACTION_ORDER
             if LAST_EXTRACTION_RECORDS.get(key)
         ]
+
+
+def _record_to_eligibility_scorecard(record):
+    if not isinstance(record, dict):
+        return None
+    bank_name = str(record.get("bank") or "").strip()
+    if not bank_name:
+        return None
+    npl_value = clean_number(record.get("npl"))
+    pcr_value = clean_number(record.get("pcr"))
+    rating_value = clean_cell(record.get("rating"))
+    rating_value = str(rating_value).strip().upper() if rating_value not in (None, "") else None
+    npl_score = clean_number(record.get("nplScore"))
+    if npl_score is None:
+        npl_score = clean_number(score_field_value("Non-Performing Loan Ratio (NPL)", npl_value))
+    pcr_score = clean_number(record.get("pcrScore"))
+    if pcr_score is None:
+        pcr_score = clean_number(score_field_value("Provision Coverage Ratio (PCR)", pcr_value))
+    rating_score = clean_number(record.get("ratingScore"))
+    if rating_score is None:
+        rating_score = clean_number(score_field_value("Credit Rating (CR)", rating_value))
+
+    indicators = {
+        "npl": {
+            "value": npl_value,
+            "score": npl_score,
+            "page": clean_number(record.get("nplPage")),
+            "sourceUrl": record.get("nplSource"),
+        },
+        "provision": {
+            "value": pcr_value,
+            "score": pcr_score,
+            "page": clean_number(record.get("pcrPage")),
+            "sourceUrl": record.get("pcrSource"),
+        },
+        "creditRating": {
+            "value": rating_value,
+            "score": rating_score,
+            "page": clean_number(record.get("ratingPage")),
+            "sourceUrl": record.get("ratingSource"),
+        },
+    }
+    total_score = sum(clean_number(indicators[key]["score"]) or 0 for key in indicators)
+    return {
+        "key": slugify(bank_name),
+        "name": bank_name,
+        "totalScore": total_score,
+        "indicators": indicators,
+    }
+
+
+def _snapshot_last_eligibility_scorecards():
+    with LAST_ELIGIBILITY_LOCK:
+        cards = []
+        for key in LAST_ELIGIBILITY_ORDER:
+            record = LAST_ELIGIBILITY_RECORDS.get(key)
+            card = _record_to_eligibility_scorecard(record)
+            if card:
+                cards.append(card)
+        return cards
+
+
+def _persist_eligibility_snapshot_locked():
+    payload = {
+        "records": [
+            LAST_ELIGIBILITY_RECORDS.get(key)
+            for key in LAST_ELIGIBILITY_ORDER
+            if LAST_ELIGIBILITY_RECORDS.get(key)
+        ]
+    }
+    try:
+        ELIGIBILITY_SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ELIGIBILITY_SNAPSHOT_PATH.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
+def _load_eligibility_snapshot_scorecards():
+    try:
+        if not ELIGIBILITY_SNAPSHOT_PATH.exists():
+            return []
+        payload = json.loads(ELIGIBILITY_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        rows = payload.get("records", []) if isinstance(payload, dict) else []
+    except Exception:
+        return []
+    cards = []
+    for record in rows:
+        card = _record_to_eligibility_scorecard(record)
+        if card:
+            cards.append(card)
+    return cards
 
 
 # --- File and field matching helpers ---
@@ -1098,18 +1345,22 @@ class Handler(BaseHTTPRequestHandler):
         if path in {"/api/eligibility-scorecards", "/eligibility-scorecards"}:
             return self.handle_eligibility_scorecards()
         if path in {"/api/sources", "/sources"}:
-            return self.handle_sources()
+            return self.handle_sources(query)
         if path in {"/api/run", "/run"}:
-            return self.handle_run()
+            return self.handle_run(query)
         if path in {"/api/eligibility-run", "/eligibility-run", "/api/eligibility/run", "/eligibility/run"}:
-            return self.handle_eligibility_run()
+            return self.handle_eligibility_run(query)
         if path in {"/api/stop-run", "/stop-run", "/api/stop/run", "/stop/run"}:
             return self.handle_stop_run(query)
         if path in {"/api/run-status", "/run-status", "/api/run/status", "/run/status"}:
             return self.handle_run_status()
+        if path in {"/api/notifications", "/notifications"}:
+            return self.handle_notifications()
         # Support reverse-proxy path prefixes (e.g. /fdr/api/run-status).
         if tail in {"api/run-status", "run-status", "run/status"}:
             return self.handle_run_status()
+        if tail in {"api/notifications", "notifications"}:
+            return self.handle_notifications()
         if tail in {"api/stop-run", "stop-run", "stop/run"}:
             return self.handle_stop_run(query)
         return self.handle_static(path)
@@ -1185,17 +1436,18 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def handle_sources(self):
+    def handle_sources(self, query=None):
+        selected_year = _parse_year_value((query or {}).get("year", [None])[0])
         try:
             sources_payload = json.loads(SOURCES_PATH.read_text(encoding="utf-8"))
         except Exception:
             sources_payload = {"sources": []}
-        all_sources = sources_payload.get("sources", []) if isinstance(sources_payload, dict) else []
+        all_sources = _filter_sources_by_year(sources_payload, selected_year)
         eligible_sources = []
         api_available = False
         try:
-            eligible_banks = fetch_eligible_bank_names()
-            eligible_sources = filter_sources_by_bank_names(sources_payload, eligible_banks)
+            eligible_banks = fetch_eligible_bank_names(selected_year=selected_year)
+            eligible_sources = filter_sources_by_bank_names({"sources": all_sources}, eligible_banks)
             api_available = True
         except Exception:
             pass
@@ -1212,7 +1464,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def handle_eligibility_scorecards(self):
-        payload = {"banks": build_eligibility_scorecards()}
+        cards = _snapshot_last_eligibility_scorecards()
+        if not cards:
+            cards = _load_eligibility_snapshot_scorecards()
+        if not cards:
+            cards = build_eligibility_scorecards()
+        payload = {"banks": cards}
         data = json.dumps(payload).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -1220,14 +1477,49 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def handle_run(self):
-        return self._start_run_process("extraction", SCRAPER_ENTRY)
+    def handle_run(self, query=None):
+        selected_year = _parse_year_value((query or {}).get("year", [None])[0])
+        selected_bank = _parse_bank_value(
+            (query or {}).get("bank", [None])[0]
+            or (query or {}).get("selected_bank", [None])[0]
+            or (query or {}).get("selectedBank", [None])[0]
+        )
+        return self._start_run_process(
+            "extraction",
+            SCRAPER_ENTRY,
+            selected_year=selected_year,
+            selected_bank=selected_bank,
+        )
 
-    def handle_eligibility_run(self):
-        return self._start_run_process("eligibility", ELIGIBILITY_SCRAPER_ENTRY, self._sync_eligibility_to_apex)
+    def handle_eligibility_run(self, query=None):
+        selected_year = _parse_year_value((query or {}).get("year", [None])[0])
+        selected_bank = _parse_bank_value(
+            (query or {}).get("bank", [None])[0]
+            or (query or {}).get("selected_bank", [None])[0]
+            or (query or {}).get("selectedBank", [None])[0]
+        )
+        return self._start_run_process(
+            "eligibility",
+            ELIGIBILITY_SCRAPER_ENTRY,
+            None,
+            selected_year=selected_year,
+            selected_bank=selected_bank,
+        )
 
     def handle_run_status(self):
         payload = {"runs": _snapshot_run_states()}
+        data = json.dumps(payload).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def handle_notifications(self):
+        payload = {"items": _get_run_notifications()}
         data = json.dumps(payload).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -1275,7 +1567,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _start_run_process(self, run_type, script_entry, post_complete=None):
+    def _start_run_process(self, run_type, script_entry, post_complete=None, selected_year=None, selected_bank=None):
         if not _acquire_run_slot(run_type):
             try:
                 self.send_response(200)
@@ -1298,7 +1590,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Connection", "keep-alive")
             self.end_headers()
-            sync_result = _sync_sources_from_api()
+            sync_result = _sync_sources_from_api(selected_year=selected_year)
             if sync_result.get("ok"):
                 client_connected = self.send_event(
                     {
@@ -1324,14 +1616,87 @@ class Handler(BaseHTTPRequestHandler):
             env = dict(os.environ)
             env["PYTHONUNBUFFERED"] = "1"
             cmd = [sys.executable, "-u"]
+            client_connected = self.send_event(
+                {
+                    "type": "log",
+                    "line": f"Run filters: year={selected_year if selected_year else 'ALL'}, bank={selected_bank if selected_bank else 'ALL'}",
+                }
+            )
+            try:
+                sources_payload = json.loads(SOURCES_PATH.read_text(encoding="utf-8"))
+            except Exception:
+                sources_payload = {"sources": []}
+            year_sources = _filter_sources_by_year(sources_payload, selected_year)
+            if selected_year:
+                client_connected = self.send_event(
+                    {
+                        "type": "log",
+                        "line": f"Year source pool: {selected_year} ({len(year_sources)} total source records before eligibility filter).",
+                    }
+                )
+            if selected_bank:
+                target_norm = normalize_bank_name(selected_bank)
+                selected_sources = []
+                for row in year_sources:
+                    row_name = str(row.get("bank") or "").strip()
+                    row_norm = normalize_bank_name(row_name)
+                    if not row_norm:
+                        continue
+                    if row_norm == target_norm:
+                        selected_sources.append(row)
+                if not selected_sources and target_norm:
+                    for row in year_sources:
+                        row_name = str(row.get("bank") or "").strip()
+                        row_norm = normalize_bank_name(row_name)
+                        if not row_norm:
+                            continue
+                        if target_norm in row_norm or row_norm in target_norm:
+                            selected_sources.append(row)
+                year_sources = selected_sources
+                client_connected = self.send_event(
+                    {
+                        "type": "log",
+                        "line": f"Selected bank filter applied: {selected_bank} ({len(year_sources)} source records).",
+                    }
+                )
+            if not year_sources:
+                self.send_event(
+                    {
+                        "type": "error",
+                        "message": (
+                            f"No source entries found for selected bank '{selected_bank}' in year {selected_year}."
+                            if selected_bank and selected_year
+                            else (
+                                f"No source entries found for selected bank '{selected_bank}'."
+                                if selected_bank
+                                else (
+                                    f"No source entries found for year {selected_year}."
+                                    if selected_year
+                                    else "No source entries found in config/sources.json."
+                                )
+                            )
+                        ),
+                    }
+                )
+                return
+
+            tmp = tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                delete=False,
+                suffix=".json",
+                prefix="selected_sources_",
+                dir=str(ROOT),
+            )
+            json.dump({"sources": year_sources}, tmp, ensure_ascii=False, indent=2)
+            tmp.flush()
+            tmp.close()
+            temp_sources_path = tmp.name
+
             if run_type == "extraction":
                 try:
-                    sources_payload = json.loads(SOURCES_PATH.read_text(encoding="utf-8"))
-                except Exception:
-                    sources_payload = {"sources": []}
-                try:
-                    eligible_banks = fetch_eligible_bank_names()
-                    filtered_sources = filter_sources_by_bank_names(sources_payload, eligible_banks)
+                    eligible_banks = fetch_eligible_bank_names(selected_year=selected_year)
+                    filtered_sources = filter_sources_by_bank_names({"sources": year_sources}, eligible_banks)
                 except Exception as exc:
                     client_connected = self.send_event(
                         {
@@ -1339,38 +1704,43 @@ class Handler(BaseHTTPRequestHandler):
                             "line": f"Eligible API unavailable, using local sources: {exc}",
                         }
                     )
-                    filtered_sources = sources_payload.get("sources", [])
+                    filtered_sources = year_sources
                 if not filtered_sources:
                     self.send_event(
                         {
                             "type": "error",
-                            "message": "No eligible bank source matched config/sources.json",
+                            "message": (
+                                f"Selected bank '{selected_bank}' is not in eligible final list for year {selected_year}."
+                                if selected_bank and selected_year
+                                else (
+                                    f"Selected bank '{selected_bank}' is not in eligible final list."
+                                    if selected_bank
+                                    else (
+                                        f"No eligible bank source matched selected year {selected_year}."
+                                        if selected_year
+                                        else "No eligible bank source matched config/sources.json"
+                                    )
+                                )
+                            ),
                         }
                     )
                     return
                 _set_run_total(run_type, len(filtered_sources))
-                tmp = tempfile.NamedTemporaryFile(
-                    mode="w",
-                    encoding="utf-8",
-                    delete=False,
-                    suffix=".json",
-                    prefix="eligible_sources_",
-                    dir=str(ROOT),
-                )
-                json.dump({"sources": filtered_sources}, tmp, ensure_ascii=False, indent=2)
-                tmp.flush()
-                tmp.close()
-                temp_sources_path = tmp.name
+                with open(temp_sources_path, "w", encoding="utf-8") as eligible_handle:
+                    json.dump({"sources": filtered_sources}, eligible_handle, ensure_ascii=False, indent=2)
                 cmd.extend(["scraper.py", "--sources", temp_sources_path])
                 client_connected = self.send_event(
                     {
                         "type": "log",
-                        "line": f"Loaded {len(filtered_sources)} eligible banks from final worklist.",
+                        "line": (
+                            f"Eligible filter applied: {len(filtered_sources)} bank(s) will run "
+                            f"(from {len(year_sources)} year-source record(s))."
+                        ),
                     }
                 )
             else:
-                _set_run_total(run_type, _estimate_total_for_eligibility())
-                cmd.append(script_entry)
+                _set_run_total(run_type, len(year_sources))
+                cmd.extend([script_entry, "--sources", temp_sources_path, "--no-output"])
             proc = subprocess.Popen(
                 cmd,
                 cwd=str(ROOT),
@@ -1420,6 +1790,15 @@ class Handler(BaseHTTPRequestHandler):
                     client_connected = self.send_event({"type": "log", "line": text})
 
             proc.wait()
+            try:
+                _append_run_notification(
+                    run_type,
+                    selected_year=selected_year,
+                    selected_bank=selected_bank,
+                    successful=(int(getattr(proc, "returncode", 1) or 1) == 0),
+                )
+            except Exception:
+                pass
             if client_connected:
                 self.send_event({"type": "complete", "returncode": proc.returncode, "run": run_type})
             if post_complete:

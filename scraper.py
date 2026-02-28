@@ -4736,26 +4736,33 @@ def main():
     for entry_year, entries in entries_by_year.items():
         results_by_year.setdefault(entry_year, [])
         for entry in entries:
-            entry_pdf_url = entry.get("pdf_url")
-            entry_pdf_path = entry.get("pdf_path")
-            entry_bank = entry.get("bank")
-            print(f"Processing {entry_bank} {entry_year}")
             try:
-                result = run_single(entry_pdf_url, entry_pdf_path, entry_bank, entry_year)
-                if isinstance(result, int):
-                    raise RuntimeError("Run failed")
-            except Exception as exc:
-                source_url = entry_pdf_url or entry_pdf_path
-                source_type = detect_source_type(entry_pdf_url, entry_pdf_path or "")
-                result = build_empty_result(
-                    entry_bank, entry_year, source_url, source_type, error=exc
+                entry_pdf_url = entry.get("pdf_url")
+                entry_pdf_path = entry.get("pdf_path")
+                entry_bank = entry.get("bank")
+                print(f"Processing {entry_bank} {entry_year}")
+                try:
+                    result = run_single(entry_pdf_url, entry_pdf_path, entry_bank, entry_year)
+                    if isinstance(result, int):
+                        raise RuntimeError("Run failed")
+                except Exception as exc:
+                    source_url = entry_pdf_url or entry_pdf_path
+                    source_type = detect_source_type(entry_pdf_url, entry_pdf_path or "")
+                    result = build_empty_result(
+                        entry_bank, entry_year, source_url, source_type, error=exc
+                    )
+                results_by_year[entry_year].append(result)
+                emit_extraction_data(result)
+                push_performance_to_apex(result, period="Annual")
+                print(
+                    f"Extraction result: {result.get('bank')} | Total={result.get('summary_row', {}).get('Total Score', 0)}"
                 )
-            results_by_year[entry_year].append(result)
-            emit_extraction_data(result)
-            push_performance_to_apex(result, period="Annual")
-            print(
-                f"Extraction result: {result.get('bank')} | Total={result.get('summary_row', {}).get('Total Score', 0)}"
-            )
+            except Exception as exc:
+                print(
+                    f"Extraction pipeline error for {entry.get('bank')} {entry_year}: {exc}",
+                    file=sys.stderr,
+                )
+                continue
 
     if not args.no_output:
         for year, results in results_by_year.items():

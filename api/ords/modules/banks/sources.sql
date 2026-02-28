@@ -1,7 +1,8 @@
-SELECT 
+SELECT
     bm.BANK_NAME as "bank",
     bsu.FISCAL_YEAR as "year",
     bsu.SOURCE_URL as "pdf_url"
 FROM BANK_SOURCE_URLS bsu
 JOIN BANK_MASTER bm ON bsu.BANK_ID = bm.BANK_ID
+WHERE (:year IS NULL OR bsu.FISCAL_YEAR = TO_NUMBER(:year))
 ORDER BY bsu.FISCAL_YEAR DESC, bm.BANK_NAME ASC
