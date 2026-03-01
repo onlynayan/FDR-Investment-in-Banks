@@ -1633,6 +1633,7 @@ const startRunMode = (runType, options = {}) => {
 
   const source = new EventSource(runUrl);
   state.runSource = source;
+  let streamDelegatedToExistingRun = false;
 
   source.onmessage = (event) => {
     try {
@@ -1648,6 +1649,13 @@ const startRunMode = (runType, options = {}) => {
       }
       if (payload.type === "complete") {
         source.close();
+        if (state.runSource === source) {
+          state.runSource = null;
+        }
+        if (streamDelegatedToExistingRun) {
+          // Ignore terminal events from "already in progress" probe streams.
+          return;
+        }
         const completedRun = payload.run || runType;
         finalizeRun(completedRun, { successful: Number(payload.returncode || 0) === 0 });
         const completedConfig = runConfigs[completedRun] || config;
@@ -1659,6 +1667,7 @@ const startRunMode = (runType, options = {}) => {
         const message = String(payload.message || "");
         if (message.toLowerCase().includes("already in progress")) {
           addLog(`Info: ${message}`);
+          streamDelegatedToExistingRun = true;
           source.close();
           state.runSource = null;
           state.running = true;
@@ -1965,7 +1974,12 @@ const applyRunStatus = (runs, announce = false) => {
   const completed = Number(active.completed_banks || 0);
   const total = Number(active.total_banks || 0);
   setReadinessActive(activeType, completed, total);
-  const percent = total > 0 ? Math.min(99, Math.round((completed / total) * 100)) : Math.min(95, completed * 3);
+  const percent =
+    total > 0
+      ? completed >= total
+        ? 100
+        : Math.min(99, Math.round((completed / total) * 100))
+      : Math.min(95, completed * 3);
   setProgress(percent);
 
   if (active.current_bank && runBankName) {

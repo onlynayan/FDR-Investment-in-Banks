@@ -1795,7 +1795,7 @@ class Handler(BaseHTTPRequestHandler):
                     run_type,
                     selected_year=selected_year,
                     selected_bank=selected_bank,
-                    successful=(int(getattr(proc, "returncode", 1) or 1) == 0),
+                    successful=(getattr(proc, "returncode", None) == 0),
                 )
             except Exception:
                 pass

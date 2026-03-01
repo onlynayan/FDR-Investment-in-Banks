@@ -10,6 +10,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "ss1";
+  src: local("Google Sans"), local("Google Sans Text"), local("Product Sans");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* --- Global color palette and sizing --- */
 :root {
   --bg: #0b0f16;
@@ -711,6 +719,13 @@ h1 {
   text-wrap: balance;
   margin-bottom: 16px;
   text-shadow: 0 8px 28px rgba(46, 217, 184, 0.12), 0 8px 20px rgba(5, 9, 16, 0.55);
+}
+
+.objective-lead {
+  font-family: "ss1", "Google Sans", "Google Sans Text", "Product Sans", "Syne", "Space Grotesk", "Segoe UI", sans-serif;
+  font-weight: 400;
+  line-height: 1.68;
+  padding-bottom: 0.12em;
 }
 
 .hero-actions {
