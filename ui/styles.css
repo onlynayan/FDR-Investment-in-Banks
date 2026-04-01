@@ -370,11 +370,52 @@ body.locked {
   padding: 0 2px;
 }
 
-.year-picker {
-  position: relative;
+.fiscal-year-display {
   display: inline-flex;
   align-items: center;
-  gap: 0;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: 999px;
+  padding: 8px 16px;
+  min-width: 90px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 22px rgba(5, 10, 20, 0.35);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  line-height: 1;
+  user-select: none;
+}
+
+.fiscal-year-display.closed {
+  border-color: rgba(242, 169, 59, 0.45);
+}
+
+.fiscal-year-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(46, 217, 184, 0.6);
+  flex-shrink: 0;
+}
+
+.fiscal-year-display.closed .fiscal-year-dot {
+  background: rgba(242, 169, 59, 0.95);
+  box-shadow: 0 0 6px rgba(242, 169, 59, 0.55);
+}
+
+.fiscal-year-value {
+  color: #f4f9ff;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+}
+
+.fiscal-year-status {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: rgba(242, 169, 59, 0.95);
 }
 
 .notify-picker {
@@ -525,49 +566,7 @@ body.locked {
   text-align: left;
 }
 
-.year-trigger {
-  border: 1px solid rgba(255, 255, 255, 0.26);
-  border-radius: 999px;
-  padding: 8px 34px 8px 14px;
-  min-width: 106px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
-  color: #f4f9ff;
-  font-weight: 700;
-  letter-spacing: 0.35px;
-  cursor: pointer;
-  outline: none;
-  text-align: left;
-  line-height: 1;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 22px rgba(5, 10, 20, 0.35);
-  backdrop-filter: blur(12px) saturate(120%);
-  -webkit-backdrop-filter: blur(12px) saturate(120%);
-}
 
-.year-picker::after {
-  content: "";
-  position: absolute;
-  right: 18px;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  border-right: 2px solid rgba(229, 237, 247, 0.9);
-  border-bottom: 2px solid rgba(229, 237, 247, 0.9);
-  transform: translateY(-60%) rotate(45deg);
-  pointer-events: none;
-}
-
-.year-picker:hover {
-  filter: saturate(112%);
-}
-
-.year-picker:hover .year-trigger {
-  border-color: rgba(46, 217, 184, 0.55);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 12px 26px rgba(46, 217, 184, 0.16);
-}
-
-.year-trigger:focus-visible {
-  box-shadow: 0 0 0 2px rgba(46, 217, 184, 0.45);
-}
 
 .year-menu {
   position: absolute;
@@ -2405,15 +2404,11 @@ body.loaded .reveal {
     justify-content: stretch;
   }
 
-  .year-picker {
+  .fiscal-year-display {
     grid-column: 1;
     width: 100%;
     align-self: center;
-  }
-
-  .year-trigger {
-    min-width: 0;
-    width: 100%;
+    justify-content: center;
   }
 
   #eligibilityBtn {

@@ -29,3 +29,7 @@ node_modules/
 
 # Exclude for now (user request)
 crawler.py
+
+# Exclude for now (user request)
+PROJECT_DOCUMENTATION.md
+

@@ -2,10 +2,6 @@
 
 Developed by Nayan
 
-## Live Project
-
-http://103.163.97.33:8000/
-
 ## Project Overview
 
 This repository contains the working codebase for the **FDR Investment in Banks** platform.  

@@ -13,9 +13,9 @@ const selectedEligibilityLabel = document.getElementById("selectedEligibilityLab
 const selectedFinalLabel = document.getElementById("selectedFinalLabel");
 const logoutBtn = document.getElementById("logoutBtn");
 const stopRunBtn = document.getElementById("stopRunBtn");
-const yearPicker = document.getElementById("yearPicker");
-const annualYearTrigger = document.getElementById("annualYearTrigger");
-const annualYearMenu = document.getElementById("annualYearMenu");
+const fiscalYearDisplay = document.getElementById("fiscalYearDisplay");
+const fiscalYearDot = document.getElementById("fiscalYearDot");
+const fiscalYearStatus = document.getElementById("fiscalYearStatus");
 const annualYearValue = document.getElementById("annualYearValue");
 const notifyPicker = document.getElementById("notifyPicker");
 const notifyTrigger = document.getElementById("notifyTrigger");
@@ -295,24 +295,7 @@ const RUN_STATUS_STORAGE_KEY = "fdr-investments.runStatus.v1";
 const RUN_STATUS_ENDPOINTS = ["/api/run-status", "api/run-status", "/run-status", "run-status"];
 const RUN_UI_STORAGE_KEY = "fdr-investments.runUi.v1";
 const AUTH_PREFS_KEY = "fdr-auth-prefs.v1";
-const YEAR_PREFS_KEY = "fdr-selected-year.v1";
 const NOTIFY_READ_TS_KEY = "fdr-run-notifications.readTs.v1";
-const currentYear = new Date().getFullYear();
-const MIN_YEAR_OPTION = currentYear - 2;
-const MAX_YEAR_OPTION = currentYear + 1;
-
-const readStoredYear = () => {
-  try {
-    const raw = localStorage.getItem(YEAR_PREFS_KEY);
-    const year = Number(raw);
-    if (!Number.isFinite(year) || year <= 0) {
-      return null;
-    }
-    return year;
-  } catch (_error) {
-    return null;
-  }
-};
 
 const readNotifyReadTs = () => {
   try {
@@ -327,7 +310,7 @@ const readNotifyReadTs = () => {
 const saveNotifyReadTs = (ts) => {
   try {
     localStorage.setItem(NOTIFY_READ_TS_KEY, String(Number(ts) || 0));
-  } catch (_error) {}
+  } catch (_error) { }
 };
 
 // --- App state ---
@@ -357,8 +340,8 @@ const state = {
   sourceTotalBanks: 0,
   sourceEligibleBanks: 0,
   sourceBankNames: [],
-  sourceYears: [],
-  selectedYear: readStoredYear(),
+  selectedYear: null,
+  closingStatus: "Y",
   selectedEligibilityBank: null,
   selectedFinalBank: null,
   selectiveEligibilityBanks: [],
@@ -380,7 +363,7 @@ const runConfigs = {
     resultValue: "All banks processed",
     resultMeta: "Scorecards streamed live from scraper output",
     deltaLabel: "Peer median delta",
-    onComplete: () => {},
+    onComplete: () => { },
   },
   eligibility: {
     endpoint: "/api/eligibility-run",
@@ -1033,12 +1016,12 @@ const renderIndicatorRows = (bank, indicators, target) => {
       numericScore === null
         ? ""
         : numericScore < 0
-        ? "score-negative"
-        : numericScore === indicator.maxScore && indicator.maxScore > 0
-        ? "score-positive"
-        : numericScore > 0
-        ? "score-warning"
-        : "";
+          ? "score-negative"
+          : numericScore === indicator.maxScore && indicator.maxScore > 0
+            ? "score-positive"
+            : numericScore > 0
+              ? "score-warning"
+              : "";
     scoreCell.className = `score-cell${scoreClass ? ` ${scoreClass}` : ""}`;
     const scoreText = isMissingValue(entry.score) ? "N/A" : entry.score;
     scoreCell.textContent = scoreText;
@@ -1376,8 +1359,8 @@ const updateActiveEligibilityBank = (bankKey) => {
       status === "strong"
         ? "NPL < 8 and rating AA/AAA"
         : status === "moderate"
-        ? "Eligibility not met"
-        : "Missing NPL or rating";
+          ? "Eligibility not met"
+          : "Missing NPL or rating";
   }
 
   const flags = getEligibilityFlags(bank);
@@ -1729,80 +1712,53 @@ const setSelectedYear = (yearValue) => {
     if (annualYearValue) {
       annualYearValue.textContent = "----";
     }
-    try {
-      localStorage.removeItem(YEAR_PREFS_KEY);
-    } catch (_error) {}
     return;
   }
   state.selectedYear = numericYear;
   if (annualYearValue) {
     annualYearValue.textContent = String(numericYear);
   }
-  try {
-    localStorage.setItem(YEAR_PREFS_KEY, String(numericYear));
-  } catch (_error) {}
 };
-setSelectedYear(state.selectedYear);
 
-const syncYearDropdown = (years) => {
-  if (!annualYearMenu) {
-    return;
+const applyClosingStatus = (closingStatus) => {
+  const isClosed = String(closingStatus).trim().toUpperCase() === "Y";
+  state.closingStatus = isClosed ? "Y" : "N";
+  if (fiscalYearDisplay) {
+    fiscalYearDisplay.classList.toggle("closed", isClosed);
   }
-  const fixedYears = Array.from(
-    { length: MAX_YEAR_OPTION - MIN_YEAR_OPTION + 1 },
-    (_, index) => MIN_YEAR_OPTION + index
-  );
-  const normalizedYears = Array.from(
-    new Set(
-      [...fixedYears, ...(years || [])]
-        .map((year) => Number(year))
-        .filter((year) => Number.isFinite(year) && year > 0)
-    )
-  ).sort((a, b) => b - a);
-  state.sourceYears = normalizedYears;
-
-  const preferredYear = state.selectedYear;
-  annualYearMenu.innerHTML = "";
-
-  if (!normalizedYears.length) {
-    state.selectedYear = null;
-    if (annualYearValue) {
-      annualYearValue.textContent = "----";
+  if (fiscalYearStatus) {
+    fiscalYearStatus.textContent = isClosed ? "Closed" : "";
+  }
+  const closedTitle = "Fiscal year is closed";
+  [runBtn, eligibilityBtn, runSelectedEligibilityBtn, runSelectedFinalBtn].forEach((btn) => {
+    if (!btn) return;
+    if (isClosed) {
+      btn.disabled = true;
+      btn.title = closedTitle;
+    } else {
+      btn.disabled = false;
+      btn.removeAttribute("title");
     }
-    return;
-  }
-
-  normalizedYears.forEach((year) => {
-    const option = document.createElement("button");
-    option.type = "button";
-    option.className = "year-option";
-    option.setAttribute("role", "option");
-    option.dataset.year = String(year);
-    option.textContent = String(year);
-    annualYearMenu.appendChild(option);
-  });
-
-  const nextYear = normalizedYears.includes(preferredYear) ? preferredYear : null;
-  setSelectedYear(nextYear);
-  Array.from(annualYearMenu.querySelectorAll(".year-option")).forEach((node) => {
-    node.classList.toggle("active", nextYear !== null && Number(node.dataset.year) === nextYear);
   });
 };
 
-const closeYearMenu = () => {
-  if (!annualYearMenu || !annualYearTrigger) {
-    return;
+const fetchActiveFiscalYear = async () => {
+  try {
+    const response = await fetch("/api/active-fiscal-year");
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    setSelectedYear(data.base_year);
+    applyClosingStatus(data.closing_status);
+    if (data.error) {
+      addLog(`Fiscal year API warning: ${data.error}`);
+    }
+  } catch (error) {
+    setSelectedYear(null);
+    applyClosingStatus("Y");
+    addLog(`Fiscal year API error: ${error.message}`);
   }
-  annualYearMenu.hidden = true;
-  annualYearTrigger.setAttribute("aria-expanded", "false");
-};
-
-const openYearMenu = () => {
-  if (!annualYearMenu || !annualYearTrigger) {
-    return;
-  }
-  annualYearMenu.hidden = false;
-  annualYearTrigger.setAttribute("aria-expanded", "true");
 };
 
 const renderNotifications = () => {
@@ -2049,8 +2005,8 @@ const stopRunProcesses = async () => {
     state.currentRunType === "eligibility"
       ? "eligibility scan"
       : state.currentRunType === "extraction"
-      ? "final extraction run"
-      : "running process";
+        ? "final extraction run"
+        : "running process";
   const confirmed = await openConfirmModal(
     "Close process?",
     `Are you sure you want to close the ${activeLabel}? This will terminate execution.`
@@ -2326,7 +2282,7 @@ const loadSources = async () => {
           .filter((year) => Number.isFinite(year) && year > 0)
       )
     ).sort((a, b) => b - a);
-    syncYearDropdown(years);
+
     state.selectiveEligibilityBanks = normalizeBankList(allSources.map((entry) => entry?.bank));
     state.selectiveFinalBanks = normalizeBankList(eligibleSources.map((entry) => entry?.bank));
     if (state.selectedEligibilityBank && !state.selectiveEligibilityBanks.includes(state.selectedEligibilityBank)) {
@@ -2389,47 +2345,12 @@ const loadSources = async () => {
   }
 };
 
-if (annualYearTrigger && annualYearMenu) {
-  annualYearTrigger.addEventListener("click", () => {
-    if (annualYearMenu.hidden) {
-      openYearMenu();
-    } else {
-      closeYearMenu();
-    }
-  });
-
-  annualYearMenu.addEventListener("click", (event) => {
-    const target = event.target instanceof Element ? event.target.closest(".year-option") : null;
-    if (!target) {
-      return;
-    }
-    const nextYear = Number(target.dataset.year);
-    setSelectedYear(nextYear);
-    Array.from(annualYearMenu.querySelectorAll(".year-option")).forEach((node) => {
-      node.classList.toggle("active", node === target);
-    });
-    closeYearMenu();
-    if (state.selectedYear) {
-      addLog(`Year selected: ${state.selectedYear}`);
-    }
-    loadSources();
-  });
-
-  document.addEventListener("click", (event) => {
-    if (!yearPicker || yearPicker.contains(event.target)) {
-      return;
-    }
-    closeYearMenu();
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeYearMenu();
-      closeBankMenus();
-      closeNotifyMenu();
-    }
-  });
-}
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeBankMenus();
+    closeNotifyMenu();
+  }
+});
 
 if (runSelectedEligibilityBtn && selectedEligibilityMenu) {
   runSelectedEligibilityBtn.addEventListener("click", () => {
@@ -2819,7 +2740,7 @@ window.addEventListener("load", () => {
     }
     loadRunStatus(false);
     startRunStatusPolling();
-    loadSources();
+    fetchActiveFiscalYear().then(() => loadSources());
     loadScorecards();
     loadEligibilityScorecards();
     scheduleOutputPanelHeight();

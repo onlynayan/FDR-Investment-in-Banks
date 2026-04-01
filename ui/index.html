@@ -37,18 +37,10 @@
         </div>
       </div>
       <div class="top-actions">
-        <div class="year-picker" id="yearPicker">
-          <button
-            type="button"
-            class="year-trigger"
-            id="annualYearTrigger"
-            aria-haspopup="listbox"
-            aria-expanded="false"
-            aria-controls="annualYearMenu"
-          >
-            <span id="annualYearValue">----</span>
-          </button>
-          <div class="year-menu" id="annualYearMenu" role="listbox" hidden></div>
+        <div class="fiscal-year-display" id="fiscalYearDisplay">
+          <span class="fiscal-year-dot" id="fiscalYearDot"></span>
+          <span class="fiscal-year-value" id="annualYearValue">----</span>
+          <span class="fiscal-year-status" id="fiscalYearStatus"></span>
         </div>
         <button class="ghost" id="eligibilityBtn">Eligibility scan</button>
         <button class="primary" id="runBtn">Run extraction</button>

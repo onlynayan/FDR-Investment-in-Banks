@@ -50,6 +50,7 @@ ELIGIBILITY_OUTPUT_DIR = ROOT / "eligible_output"
 ELIGIBLE_DOWNLOADS_DIR = ROOT / "eligible_downloads"
 ELIGIBILITY_SNAPSHOT_PATH = ROOT / "output" / "eligibility_snapshot.json"
 ELIGIBLE_WORKLIST_API = "http://103.163.96.251:8282/ords/cpa_invst/banks/worklist"
+ACTIVE_FISCAL_YEAR_API = "http://103.163.96.251:8282/ords/cpa_invst/banks/active-fiscal-year"
 LOGIN_API_URL = "http://103.163.96.251:8282/ords/cpa_invst/banks/login"
 SESSION_COOKIE_NAME = "fdr_session"
 SESSION_TTL_SECONDS = 60 * 60 * 12
@@ -1356,6 +1357,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_run_status()
         if path in {"/api/notifications", "/notifications"}:
             return self.handle_notifications()
+        if path in {"/api/active-fiscal-year", "/active-fiscal-year"}:
+            return self.handle_active_fiscal_year()
         # Support reverse-proxy path prefixes (e.g. /fdr/api/run-status).
         if tail in {"api/run-status", "run-status", "run/status"}:
             return self.handle_run_status()
@@ -1529,6 +1532,43 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def handle_active_fiscal_year(self):
+        """Proxy the APEX active-fiscal-year endpoint and return a
+        simplified ``{base_year, closing_status}`` payload.  On any
+        failure the response defaults to *closed* so scraping operations
+        stay blocked until a healthy response is received."""
+        try:
+            req = Request(
+                ACTIVE_FISCAL_YEAR_API,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "fdr-investment-in-banks-ui-server/1.0",
+                },
+            )
+            with urlopen_no_proxy(req, timeout=15) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+            body = json.loads(raw)
+            items = body.get("items") if isinstance(body, dict) else None
+            if isinstance(items, list) and items:
+                entry = items[0]
+            elif isinstance(body, dict) and "base_year" in body:
+                entry = body
+            else:
+                entry = {}
+            base_year = entry.get("base_year")
+            closing_status = str(entry.get("closing_status") or "Y").strip().upper()
+            payload = {
+                "base_year": int(base_year) if base_year is not None else None,
+                "closing_status": closing_status,
+            }
+        except Exception as exc:
+            payload = {
+                "base_year": None,
+                "closing_status": "Y",
+                "error": str(exc),
+            }
+        return self._send_json(200, payload)
 
     def handle_stop_run(self, query):
         requested = (query.get("type") or ["all"])[0].strip().lower()
